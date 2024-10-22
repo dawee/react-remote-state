@@ -1,0 +1,25 @@
+{
+  "name": "@react-remote-state/client",
+  "version": "1.0.0",
+  "description": "Client for React Remote State applications",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsup": "^8.3.0",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "react": "^18.3.1"
+  }
+}

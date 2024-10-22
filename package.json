@@ -1,0 +1,8 @@
+{
+  "name": "react-remote-state",
+  "workspaces": [
+    "packages/server",
+    "packages/client",
+    "example"
+  ]
+}
