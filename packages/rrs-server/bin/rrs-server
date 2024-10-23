@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+
+const Server = require("@react-remote-state/server");
+const { program } = require("commander");
+
+program.option("--port", "Port to listen to", "3000");
+
+program.parse();
+
+let options = program.opts();
+
+console.log("aaa");
