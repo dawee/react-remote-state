@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 
-const Server = require("@react-remote-state/server");
+const { Server } = require("@react-remote-state/server");
 const { program } = require("commander");
 
 program.option("--port", "Port to listen to", "3000");
-
+program.option("--cors-origin", "CORS Origin expression", "*");
 program.parse();
 
 let options = program.opts();
 
-console.log("aaa");
+let server = new Server({
+  port: parseInt(options.port),
+  io: {
+    cors: {
+      origin: options.corsOrigin,
+      methods: ["GET", "POST"],
+    },
+  },
+});
+
+server.run();

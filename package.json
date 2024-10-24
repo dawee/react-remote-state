@@ -3,6 +3,7 @@
   "workspaces": [
     "packages/server",
     "packages/client",
+    "packages/rrs-server",
     "example"
   ]
 }

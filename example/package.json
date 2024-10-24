@@ -18,7 +18,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "server": "react-remote-state-server",
+    "server": "rrs-server",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
@@ -43,7 +43,7 @@
     ]
   },
   "devDependencies": {
-    "@react-remote-state/server": "^1.0.0",
+    "rrs-server": "^1.0.0",
     "ts-node": "^10.9.2"
   }
 }
