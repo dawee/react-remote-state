@@ -55,7 +55,7 @@ export default class Socket {
     };
 
     await this.cache.set(
-      { id: "serverGame.game.id", segment: "game" },
+      { id: serverGame.game.id, segment: "game" },
       JSON.stringify(serverGame),
       3600000
     );
