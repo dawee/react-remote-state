@@ -8,9 +8,16 @@ import ShortUniqueId from "short-unique-id";
 
 const uid = new ShortUniqueId({ length: 10 });
 
-const Request = t.type({
+const CreateGameRequest = t.type({
   type: t.literal("create-game"),
 });
+
+const JoinGameRequest = t.type({
+  type: t.literal("join-game"),
+  gameId: t.string
+});
+
+const Request = t.union([CreateGameRequest, JoinGameRequest]);
 
 type RequestT = t.TypeOf<typeof Request>;
 
@@ -23,18 +30,7 @@ export default class Socket {
     this.cache = cache;
   }
 
-  public async handleRequest(data: unknown): Promise<Response> {
-    let decoded = Request.decode(data);
-
-    if (isLeft(decoded)) {
-      return {
-        ok: false,
-        message: `Invalid request: ${PathReporter.report(decoded).join("\n")}`,
-      };
-    }
-
-    let decodedRequest: RequestT = decoded.right;
-
+  public async createGame(): Promise<Response> {
     let playerId = uid.rnd();
     let serverGame: ServerGame = {
       game: {
@@ -65,6 +61,30 @@ export default class Socket {
     );
 
     return createGameResponse;
+  }
+
+  public async joinGame(gameId: string): Promise<Response> {
+    return { ok: true };
+  }
+
+  public async handleRequest(data: unknown): Promise<Response> {
+    let decoded = Request.decode(data);
+
+    if (isLeft(decoded)) {
+      return {
+        ok: false,
+        message: `Invalid request: ${PathReporter.report(decoded).join("\n")}`,
+      };
+    }
+
+    let decodedRequest: RequestT = decoded.right;
+
+    switch (decodedRequest.type) {
+      case 'create-game':
+        return await this.createGame();
+      case 'join-game':
+        return await this.joinGame(decodedRequest.gameId);
+    }
   }
 
   public bind() {
