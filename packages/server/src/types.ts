@@ -1,3 +1,5 @@
+import * as t from "io-ts";
+
 export type Player = {
   id: string;
   host: boolean;
@@ -19,9 +21,21 @@ export interface Response {
   message?: string;
 }
 
-export interface CreateGameResponse extends Response {
-  type: "create-game";
+export interface JoinGameResponse extends Response {
   ok: true;
   playerId: string;
   game: Game;
 }
+
+export const CreateGameRequest = t.type({
+  type: t.literal("create-game"),
+});
+
+export const JoinGameRequest = t.type({
+  type: t.literal("join-game"),
+  gameId: t.string,
+});
+
+export const Request = t.union([CreateGameRequest, JoinGameRequest]);
+
+export type RequestT = t.TypeOf<typeof Request>;

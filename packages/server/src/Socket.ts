@@ -1,25 +1,17 @@
 import { Socket as IOSocket } from "socket.io";
-import * as t from "io-ts";
 import { PathReporter } from "io-ts/PathReporter";
 import { isLeft } from "fp-ts/Either";
 import Catbox from "@hapi/catbox";
-import { Response, ServerGame, Game, CreateGameResponse } from "./types";
+import {
+  Response,
+  ServerGame,
+  JoinGameResponse,
+  Request,
+  RequestT,
+} from "./types";
 import ShortUniqueId from "short-unique-id";
 
 const uid = new ShortUniqueId({ length: 10 });
-
-const CreateGameRequest = t.type({
-  type: t.literal("create-game"),
-});
-
-const JoinGameRequest = t.type({
-  type: t.literal("join-game"),
-  gameId: t.string
-});
-
-const Request = t.union([CreateGameRequest, JoinGameRequest]);
-
-type RequestT = t.TypeOf<typeof Request>;
 
 export default class Socket {
   client: IOSocket;
@@ -30,7 +22,26 @@ export default class Socket {
     this.cache = cache;
   }
 
-  public async createGame(): Promise<Response> {
+  private async createJoinGameResponse(
+    playerId: string,
+    serverGame: ServerGame
+  ): Promise<JoinGameResponse> {
+    let joinGameResponse: JoinGameResponse = {
+      ok: true,
+      playerId,
+      game: serverGame.game,
+    };
+
+    await this.cache.set(
+      { id: serverGame.game.id, segment: "game" },
+      JSON.stringify(serverGame),
+      3600000
+    );
+
+    return joinGameResponse;
+  }
+
+  private async createGame(): Promise<Response> {
     let playerId = uid.rnd();
     let serverGame: ServerGame = {
       game: {
@@ -47,24 +58,31 @@ export default class Socket {
       },
     };
 
-    let createGameResponse: CreateGameResponse = {
-      type: "create-game",
-      ok: true,
-      playerId,
-      game: serverGame.game,
-    };
-
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
-
-    return createGameResponse;
+    return await this.createJoinGameResponse(playerId, serverGame);
   }
 
-  public async joinGame(gameId: string): Promise<Response> {
-    return { ok: true };
+  private async joinGame(id: string): Promise<Response> {
+    let data = await this.cache.get({ id, segment: "game" });
+
+    if (data == null) {
+      return {
+        ok: false,
+        message: "Game doesn't exist",
+      };
+    }
+
+    let serverGame: ServerGame = JSON.parse(data.item);
+    let playerId = uid.rnd();
+
+    serverGame = {
+      ...serverGame,
+      game: {
+        ...serverGame.game,
+        players: [...serverGame.game.players, { id: playerId, host: false }],
+      },
+    };
+
+    return await this.createJoinGameResponse(playerId, serverGame);
   }
 
   public async handleRequest(data: unknown): Promise<Response> {
@@ -80,9 +98,9 @@ export default class Socket {
     let decodedRequest: RequestT = decoded.right;
 
     switch (decodedRequest.type) {
-      case 'create-game':
+      case "create-game":
         return await this.createGame();
-      case 'join-game':
+      case "join-game":
         return await this.joinGame(decodedRequest.gameId);
     }
   }
