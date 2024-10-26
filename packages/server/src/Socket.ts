@@ -15,7 +15,7 @@ import {
   notifyEventValidator,
   updateEventValidator,
   UpdateEvent,
-} from "./types";
+} from "@react-remote-state/types";
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
 

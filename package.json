@@ -1,6 +1,7 @@
 {
   "name": "react-remote-state",
   "workspaces": [
+    "packages/types",
     "packages/server",
     "packages/client",
     "packages/rrs-server",
