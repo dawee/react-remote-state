@@ -13,29 +13,29 @@ export type Game = {
 export type ServerGame = {
   game: Game;
   playerSocketIds: Record<string, string>;
+  playersQueue: Record<string, string>;
 };
 
-export interface Response {
-  type?: string;
-  ok: boolean;
-  message?: string;
-}
+// start
 
-export interface JoinGameResponse extends Response {
-  ok: true;
+export type StartResponse = {
   playerId: string;
   game: Game;
-}
+};
 
-export const CreateGameRequest = t.type({
-  type: t.literal("create-game"),
-});
+// join
 
-export const JoinGameRequest = t.type({
-  type: t.literal("join-game"),
+export const joinEventValidator = t.type({
   gameId: t.string,
 });
 
-export const Request = t.union([CreateGameRequest, JoinGameRequest]);
+export type JoinEvent = t.TypeOf<typeof joinEventValidator>;
 
-export type RequestT = t.TypeOf<typeof Request>;
+// accept
+
+export const acceptEventValidator = t.type({
+  playerId: t.string,
+  gameId: t.string,
+});
+
+export type AcceptEvent = t.TypeOf<typeof acceptEventValidator>;

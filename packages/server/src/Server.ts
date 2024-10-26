@@ -34,7 +34,7 @@ export default class Server {
     await this.cache.start();
 
     this.io.on("connection", (client) => {
-      let socket = new Socket(client, this.cache);
+      let socket = new Socket(this.io, client, this.cache);
 
       socket.bind();
     });
