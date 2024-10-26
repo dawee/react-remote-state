@@ -4,7 +4,6 @@ import { isLeft } from "fp-ts/Either";
 import Catbox from "@hapi/catbox";
 import {
   ServerGame,
-  StartResponse,
   joinEventValidator,
   JoinEvent,
   acceptEventValidator,
@@ -15,6 +14,7 @@ import {
   notifyEventValidator,
   updateEventValidator,
   UpdateEvent,
+  ServerUpdateEvent,
 } from "@react-remote-state/types";
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
@@ -84,7 +84,7 @@ export default class Socket {
       playersQueue: {},
     };
 
-    let response: StartResponse<unknown, unknown> = {
+    let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
       playerId,
       game: serverGame.game,
     };
@@ -96,7 +96,7 @@ export default class Socket {
     );
 
     this.client.join(`game-${serverGame.game.id}`);
-    this.client.emit("start", response);
+    this.client.emit("update", serverUpdate);
   }
 
   private async onJoin(data: unknown): Promise<void> {
@@ -179,9 +179,15 @@ export default class Socket {
     );
 
     this.io.to(joiningPlayerSocketId).socketsJoin(`game-${serverGame.game.id}`);
+
+    let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
+      playerId: acceptEvent.playerId,
+      game: serverGame.game,
+    };
+
     this.io
       .to(`game-${serverGame.game.id}`)
-      .emit("update", { game: serverGame.game });
+      .emit("update", serverUpdate);
   }
 
   private async onDecline(data: unknown): Promise<void> {

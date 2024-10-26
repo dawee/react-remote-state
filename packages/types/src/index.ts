@@ -28,13 +28,6 @@ export type ServerGame<GameCustom, PlayerCustom> = {
   playersQueue: Record<string, string>;
 };
 
-// start
-
-export type StartResponse<GameCustom, PlayerCustom> = {
-  playerId: string;
-  game: Game<GameCustom, PlayerCustom>;
-};
-
 // join
 
 export const joinEventValidator = t.type({
@@ -78,3 +71,7 @@ export const updateEventValidator = <GameCustom extends t.Mixed, PlayerCustom ex
   });
 
 export type UpdateEvent<GameCustom, PlayerCustom> = t.TypeOf<ReturnType<typeof updateEventValidator<t.Type<GameCustom>, t.Type<PlayerCustom>>>>;;
+
+export type ServerUpdateEvent<GameCustom, PlayerCustom> = UpdateEvent<GameCustom, PlayerCustom> & {
+  playerId?: string
+};
