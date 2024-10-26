@@ -48,6 +48,7 @@ test("join game: accept", () =>
 
     host.on("start", (start) => {
       game = start.game as Game;
+
       joiningPlayer.emit("join", { gameId: game.id });
     });
 
