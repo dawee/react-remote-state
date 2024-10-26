@@ -18,6 +18,7 @@ import {
 } from "@react-remote-state/types";
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
+import * as t from "io-ts";
 
 const uid = new ShortUniqueId({ length: 10 });
 
@@ -34,7 +35,7 @@ export default class Socket {
 
   private async getGame(
     gameId: string
-  ): Promise<[serverGame: ServerGame, hostSocketId: string]> {
+  ): Promise<[serverGame: ServerGame<unknown, unknown>, hostSocketId: string]> {
     let rawGame = await this.cache.get({
       id: gameId,
       segment: "game",
@@ -44,7 +45,7 @@ export default class Socket {
       throw new Error(`Unknown game id: "${gameId}"`);
     }
 
-    let serverGame: ServerGame = JSON.parse(rawGame.item);
+    let serverGame: ServerGame<unknown, unknown> = JSON.parse(rawGame.item);
     let hostPlayer = serverGame.game.players.find((player) => player.host);
 
     if (hostPlayer == undefined) {
@@ -65,15 +66,17 @@ export default class Socket {
 
   private async onCreate(): Promise<void> {
     let playerId = uid.rnd();
-    let serverGame: ServerGame = {
+    let serverGame: ServerGame<unknown, unknown> = {
       game: {
         id: uid.rnd(),
         players: [
           {
             id: playerId,
             host: true,
+            custom: undefined
           },
         ],
+        custom: undefined
       },
       playerSocketIds: {
         [playerId]: this.client.id,
@@ -81,7 +84,7 @@ export default class Socket {
       playersQueue: {},
     };
 
-    let response: StartResponse = {
+    let response: StartResponse<unknown, unknown> = {
       playerId,
       game: serverGame.game,
     };
@@ -165,7 +168,7 @@ export default class Socket {
       return;
     }
 
-    serverGame.game.players.push({ id: acceptEvent.playerId, host: false });
+    serverGame.game.players.push({ id: acceptEvent.playerId, host: false, custom: undefined });
     serverGame.playerSocketIds[acceptEvent.playerId] = joiningPlayerSocketId;
     delete serverGame.playersQueue[acceptEvent.playerId];
 
@@ -250,7 +253,7 @@ export default class Socket {
   }
 
   private async onUpdate(data: unknown): Promise<void> {
-    let decoded = updateEventValidator.decode(data);
+    let decoded = updateEventValidator(t.unknown, t.unknown).decode(data);
 
     if (isLeft(decoded)) {
       this.client.emit(
@@ -260,11 +263,11 @@ export default class Socket {
       return;
     }
 
-    let updateEvent: UpdateEvent = decoded.right;
+    let updateEvent: UpdateEvent<unknown, unknown> = decoded.right;
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(updateEvent.gameId);
+      [serverGame, hostSocketId] = await this.getGame(updateEvent.game.id);
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -274,6 +277,14 @@ export default class Socket {
       this.client.emit("error", "Only host can update state");
       return;
     }
+
+    serverGame.game = updateEvent.game;
+
+    await this.cache.set(
+      { id: serverGame.game.id, segment: "game" },
+      JSON.stringify(serverGame),
+      3600000
+    );
 
     this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
   }

@@ -42,12 +42,12 @@ test("create game", () =>
 
 test("join game: accept", () =>
   new Promise<void>(async (done) => {
-    let game: Game;
+    let game: Game<any, any>;
     let host = await createClient();
     let joiningPlayer = await createClient();
 
     host.on("start", (start) => {
-      game = start.game as Game;
+      game = start.game as Game<any, any>;
 
       joiningPlayer.emit("join", { gameId: game.id });
     });
@@ -66,12 +66,12 @@ test("join game: accept", () =>
 
 test("join game: decline", () =>
   new Promise<void>(async (done) => {
-    let game: Game;
+    let game: Game<any, any>;
     let host = await createClient();
     let joiningPlayer = await createClient();
 
     host.on("start", (start) => {
-      game = start.game as Game;
+      game = start.game as Game<any, any>;
       joiningPlayer.emit("join", { gameId: game.id });
     });
 
@@ -88,12 +88,12 @@ test("join game: decline", () =>
 
 test("notify action", () =>
   new Promise<void>(async (done) => {
-    let game: Game;
+    let game: Game<any, any>;
     let host = await createClient();
     let joiningPlayer = await createClient();
 
     host.on("start", (start) => {
-      game = start.game as Game;
+      game = start.game as Game<any, any>;
       joiningPlayer.emit("join", { gameId: game.id });
     });
 
@@ -118,13 +118,13 @@ test("notify action", () =>
 
 test("update state", () =>
   new Promise<void>(async (done) => {
-    let game: Game;
+    let game: Game<{ foo: number }, any>;
     let host = await createClient();
     let joiningPlayer = await createClient();
     let updateCount = 0;
 
     host.on("start", (start) => {
-      game = start.game as Game;
+      game = start.game as Game<{ foo: number }, any>;
       joiningPlayer.emit("join", { gameId: game.id });
     });
 
@@ -136,10 +136,10 @@ test("update state", () =>
       updateCount++;
 
       if (updateCount == 2) {
-        expect(update.state.foo).toBe(42);
+        expect(update.game.custom.foo).toBe(42);
         done();
       } else {
-        host.emit("update", { gameId: game.id, state: { foo: 42 } });
+        host.emit("update", { game: { ...update.game, custom: { foo: 42 } } });
       }
     });
 
