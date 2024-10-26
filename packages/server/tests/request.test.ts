@@ -40,7 +40,7 @@ test("create game", () =>
     host.emit("create");
   }));
 
-test("join game", () =>
+test("join game: accept", () =>
   new Promise<void>(async (done) => {
     let game: Game;
     let host = await createClient();
@@ -57,6 +57,28 @@ test("join game", () =>
 
     joiningPlayer.on("update", (game) => {
       expect(game.players.length).toBe(2);
+      done();
+    });
+
+    host.emit("create");
+  }));
+
+test("join game: decline", () =>
+  new Promise<void>(async (done) => {
+    let game: Game;
+    let host = await createClient();
+    let joiningPlayer = await createClient();
+
+    host.on("start", (start) => {
+      game = start.game as Game;
+      joiningPlayer.emit("join", { gameId: game.id });
+    });
+
+    host.on("join", (join) => {
+      host.emit("decline", { playerId: join.playerId, gameId: game.id });
+    });
+
+    joiningPlayer.on("decline", () => {
       done();
     });
 

@@ -39,3 +39,12 @@ export const acceptEventValidator = t.type({
 });
 
 export type AcceptEvent = t.TypeOf<typeof acceptEventValidator>;
+
+// decline
+
+export const declineEventValidator = t.type({
+  playerId: t.string,
+  gameId: t.string,
+});
+
+export type DeclineEvent = t.TypeOf<typeof declineEventValidator>;

@@ -9,6 +9,8 @@ import {
   JoinEvent,
   acceptEventValidator,
   AcceptEvent,
+  declineEventValidator,
+  DeclineEvent,
 } from "./types";
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
@@ -91,7 +93,6 @@ export default class Socket {
   }
 
   private async onJoin(data: unknown): Promise<void> {
-    console.log("onJoin");
     let playerId = uid.rnd();
     let decoded = joinEventValidator.decode(data);
 
@@ -125,8 +126,6 @@ export default class Socket {
   }
 
   private async onAccept(data: unknown): Promise<void> {
-    console.log("onAccept");
-
     let decoded = acceptEventValidator.decode(data);
 
     if (isLeft(decoded)) {
@@ -176,9 +175,54 @@ export default class Socket {
     this.io.to(`game-${serverGame.game.id}`).emit("update", serverGame.game);
   }
 
+  private async onDecline(data: unknown): Promise<void> {
+    let decoded = declineEventValidator.decode(data);
+
+    if (isLeft(decoded)) {
+      this.client.emit(
+        "error",
+        `Invalid request: ${PathReporter.report(decoded).join("\n")}`
+      );
+      return;
+    }
+
+    let declineEvent: DeclineEvent = decoded.right;
+    let serverGame, hostSocketId;
+
+    try {
+      [serverGame, hostSocketId] = await this.getGame(declineEvent.gameId);
+    } catch (error) {
+      this.client.emit("error", (error as Error).message);
+      return;
+    }
+
+    let joiningPlayerSocketId =
+      declineEvent.playerId in serverGame.playersQueue
+        ? serverGame.playersQueue[declineEvent.playerId]
+        : null;
+
+    if (joiningPlayerSocketId == null) {
+      this.client.emit("error", "Cannot find player in queue");
+      return;
+    }
+
+    delete serverGame.playersQueue[declineEvent.playerId];
+
+    await this.cache.set(
+      { id: serverGame.game.id, segment: "game" },
+      JSON.stringify(serverGame),
+      3600000
+    );
+
+    this.io
+      .to(joiningPlayerSocketId)
+      .emit("decline", { gameId: serverGame.game.id });
+  }
+
   public bind() {
     this.client.on("create", () => this.onCreate());
     this.client.on("join", (data: unknown) => this.onJoin(data));
     this.client.on("accept", (data: unknown) => this.onAccept(data));
+    this.client.on("decline", (data: unknown) => this.onDecline(data));
   }
 }
