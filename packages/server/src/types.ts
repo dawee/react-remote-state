@@ -57,3 +57,12 @@ export const notifyEventValidator = t.type({
 });
 
 export type NotifyEvent = t.TypeOf<typeof notifyEventValidator>;
+
+// update
+
+export const updateEventValidator = t.type({
+  gameId: t.string,
+  state: t.any,
+});
+
+export type UpdateEvent = t.TypeOf<typeof updateEventValidator>;
