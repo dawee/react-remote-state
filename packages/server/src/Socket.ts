@@ -11,6 +11,8 @@ import {
   AcceptEvent,
   declineEventValidator,
   DeclineEvent,
+  NotifyEvent,
+  notifyEventValidator,
 } from "./types";
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
@@ -172,7 +174,9 @@ export default class Socket {
     );
 
     this.io.to(joiningPlayerSocketId).socketsJoin(`game-${serverGame.game.id}`);
-    this.io.to(`game-${serverGame.game.id}`).emit("update", serverGame.game);
+    this.io
+      .to(`game-${serverGame.game.id}`)
+      .emit("update", { game: serverGame.game });
   }
 
   private async onDecline(data: unknown): Promise<void> {
@@ -219,10 +223,35 @@ export default class Socket {
       .emit("decline", { gameId: serverGame.game.id });
   }
 
+  private async onNotify(data: unknown): Promise<void> {
+    let decoded = notifyEventValidator.decode(data);
+
+    if (isLeft(decoded)) {
+      this.client.emit(
+        "error",
+        `Invalid request: ${PathReporter.report(decoded).join("\n")}`
+      );
+      return;
+    }
+
+    let notifyEvent: NotifyEvent = decoded.right;
+    let serverGame, hostSocketId;
+
+    try {
+      [serverGame, hostSocketId] = await this.getGame(notifyEvent.gameId);
+    } catch (error) {
+      this.client.emit("error", (error as Error).message);
+      return;
+    }
+
+    this.io.to(hostSocketId).emit("notify", notifyEvent);
+  }
+
   public bind() {
     this.client.on("create", () => this.onCreate());
     this.client.on("join", (data: unknown) => this.onJoin(data));
     this.client.on("accept", (data: unknown) => this.onAccept(data));
     this.client.on("decline", (data: unknown) => this.onDecline(data));
+    this.client.on("notify", (data: unknown) => this.onNotify(data));
   }
 }

@@ -48,3 +48,12 @@ export const declineEventValidator = t.type({
 });
 
 export type DeclineEvent = t.TypeOf<typeof declineEventValidator>;
+
+// notify
+
+export const notifyEventValidator = t.type({
+  gameId: t.string,
+  action: t.any,
+});
+
+export type NotifyEvent = t.TypeOf<typeof notifyEventValidator>;
