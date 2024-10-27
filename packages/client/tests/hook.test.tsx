@@ -47,3 +47,42 @@ test("create game when no gameId is provided", () =>
 
     render(<ComponentTest />);
   }));
+
+test("join game when gameId is provided", () =>
+  new Promise<void>(async (done) => {
+    let gameId: string | undefined = undefined;
+
+    function ComponentTest() {
+      let [game, playerId] = useRemoteReducer(
+        `http://localhost:${server.port}`,
+        (game, action, playerId) => game,
+        gameId
+      );
+
+      if (!!game) {
+        expect(game.id).toBe(gameId);
+        expect(game.players.length).toBe(2);
+        done();
+      }
+
+      return <div></div>;
+    }
+
+    let host = await createClient();
+
+    host.on("update", (update) => {
+      if (!gameId) {
+        gameId = update.game.id;
+        render(<ComponentTest />);
+      }
+    });
+
+    host.on("join", (join) =>
+      host.emit("accept", {
+        gameId: gameId,
+        playerId: join.playerId,
+      })
+    );
+
+    host.emit("create");
+  }));
