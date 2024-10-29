@@ -73,10 +73,10 @@ export default class Socket {
           {
             id: playerId,
             host: true,
-            custom: undefined
+            custom: undefined,
           },
         ],
-        custom: undefined
+        custom: undefined,
       },
       playerSocketIds: {
         [playerId]: this.client.id,
@@ -168,7 +168,11 @@ export default class Socket {
       return;
     }
 
-    serverGame.game.players.push({ id: acceptEvent.playerId, host: false, custom: undefined });
+    serverGame.game.players.push({
+      id: acceptEvent.playerId,
+      host: false,
+      custom: undefined,
+    });
     serverGame.playerSocketIds[acceptEvent.playerId] = joiningPlayerSocketId;
     delete serverGame.playersQueue[acceptEvent.playerId];
 
@@ -185,9 +189,7 @@ export default class Socket {
       game: serverGame.game,
     };
 
-    this.io
-      .to(`game-${serverGame.game.id}`)
-      .emit("update", serverUpdate);
+    this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
   }
 
   private async onDecline(data: unknown): Promise<void> {
@@ -255,7 +257,21 @@ export default class Socket {
       return;
     }
 
-    this.io.to(hostSocketId).emit("notify", notifyEvent);
+    let playerId = Object.keys(serverGame.playerSocketIds).find(
+      (playerId) => serverGame.playerSocketIds[playerId] == this.client.id
+    );
+
+    if (!playerId) {
+      this.client.emit(
+        "error",
+        "Only accepted players can notify actions to the game"
+      );
+      return;
+    }
+
+    this.io
+      .to(hostSocketId)
+      .emit("notify", { action: notifyEvent.action, playerId });
   }
 
   private async onUpdate(data: unknown): Promise<void> {

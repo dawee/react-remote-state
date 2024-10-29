@@ -39,7 +39,11 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
   uri: string,
   reducer: Reducer<GameCustom, PlayerCustom, Action>,
   gameId?: string
-): [Game<GameCustom, PlayerCustom> | undefined, string | undefined] {
+): [
+  Game<GameCustom, PlayerCustom> | undefined,
+  string | undefined,
+  (action: Action) => void
+] {
   let [meta, setMeta] = useState<Meta>({
     client: ioc(uri),
     isInitialized: false,
@@ -48,8 +52,15 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 
   let [game, setGame] = useState<Game<GameCustom, PlayerCustom>>();
 
+  let dispatch = (action: Action) => {
+    if (!!meta.client && !!game) {
+      meta.client.emit("notify", { gameId: game.id, action });
+    }
+  };
+
   useEffect(() => {
     if (!meta.isInitialized) {
+      meta.client.on("error", console.error);
       meta.client.on("connect", () => {
         if (gameId == undefined) {
           meta.client.emit("create");
@@ -87,5 +98,5 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
     }
   });
 
-  return [game, meta.localPlayerId];
+  return [game, meta.localPlayerId, dispatch];
 }
