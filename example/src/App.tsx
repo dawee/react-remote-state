@@ -1,11 +1,12 @@
 import { useRemoteReducer } from "@react-remote-state/client";
 import { Game } from "@react-remote-state/types";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   createBrowserRouter,
   RouterProvider,
   redirect,
   useNavigate,
+  useLoaderData,
 } from "react-router-dom";
 
 enum ActionType {
@@ -38,19 +39,32 @@ function Landing() {
 }
 
 function NewGame() {
-  let navigate = useNavigate();
+  let [isPathReady, setPathReady] = useState(false);
   let [game, playerId, dispatch] = useRemoteReducer<Buzzer, any, Action>(
     "http://localhost:4000",
     reducer
   );
 
   useEffect(() => {
-    if (!!game) {
-      navigate(`/g/${game.id}`);
-    }
-  }, [game, playerId]);
+    if (!isPathReady && !!game) {
+      window.history.pushState("game", "Game", `/g/${game.id}`);
 
-  return <div>Creating Game...</div>;
+      setPathReady(true);
+    }
+  });
+
+  return <div>{`Host, Players count: ${game?.players.length}`}</div>;
+}
+
+function JoinGame() {
+  let { gameId } = useLoaderData() as { gameId: string };
+  let [game, playerId, dispatch] = useRemoteReducer<Buzzer, any, Action>(
+    "http://localhost:4000",
+    reducer,
+    gameId
+  );
+
+  return <div>{`Guest, Players count: ${game?.players.length}`}</div>;
 }
 
 const router = createBrowserRouter([
@@ -61,6 +75,11 @@ const router = createBrowserRouter([
   {
     path: "/new",
     element: <NewGame />,
+  },
+  {
+    path: "/g/:gameId",
+    element: <JoinGame />,
+    loader: ({ params }) => params,
   },
 ]);
 
