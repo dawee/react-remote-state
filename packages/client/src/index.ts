@@ -1,15 +1,14 @@
 import { Game } from "@react-remote-state/types";
 import { useEffect, useState } from "react";
-import { io as ioc, type Socket as Client } from "socket.io-client";
+import { connect, Socket as Client } from "socket.io-client";
 
 type Meta = {
-  client: Client;
-  isInitialized: boolean;
+  client?: Client;
   isHostReady: boolean;
   localPlayerId?: string;
 };
 
-function getPlayer<GameCustom, PlayerCustom>(
+export function getPlayer<GameCustom, PlayerCustom>(
   playerId?: string,
   game?: Game<GameCustom, PlayerCustom>
 ) {
@@ -20,7 +19,7 @@ function getPlayer<GameCustom, PlayerCustom>(
   return game.players.find((player) => player.id == playerId);
 }
 
-function isHost<GameCustom, PlayerCustom>(
+export function isHost<GameCustom, PlayerCustom>(
   playerId?: string,
   game?: Game<GameCustom, PlayerCustom>
 ) {
@@ -45,8 +44,6 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
   (action: Action) => void
 ] {
   let [meta, setMeta] = useState<Meta>({
-    client: ioc(uri),
-    isInitialized: false,
     isHostReady: false,
   });
 
@@ -59,13 +56,14 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
   };
 
   useEffect(() => {
-    if (!meta.isInitialized) {
+    if (!meta.client) {
+      meta.client = connect(uri);
       meta.client.on("error", console.error);
       meta.client.on("connect", () => {
         if (gameId == undefined) {
-          meta.client.emit("create");
+          meta.client?.emit("create");
         } else {
-          meta.client.emit("join", { gameId });
+          meta.client?.emit("join", { gameId });
         }
       });
 
@@ -76,11 +74,9 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 
         setGame(update.game);
       });
-
-      setMeta({ ...meta, isInitialized: true });
     } else if (isHost(meta.localPlayerId, game) && !meta.isHostReady) {
       meta.client.on("join", (join) => {
-        meta.client.emit("accept", {
+        meta.client?.emit("accept", {
           gameId: game?.id,
           playerId: join.playerId,
         });
@@ -88,7 +84,7 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 
       meta.client.on("notify", (notify) => {
         if (!!game) {
-          meta.client.emit("update", {
+          meta.client?.emit("update", {
             game: reducer(game, notify.action, notify.playerId),
           });
         }

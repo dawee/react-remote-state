@@ -3,7 +3,7 @@
 const { Server } = require("@react-remote-state/server");
 const { program } = require("commander");
 
-program.option("--port", "Port to listen to", "3000");
+program.option("--port <port>", "Port to listen to", "4354");
 program.option("--cors-origin", "CORS Origin expression", "*");
 program.parse();
 
@@ -19,4 +19,6 @@ let server = new Server({
   },
 });
 
-server.run();
+server.start(() => {
+  console.log(`Server listening on port ${server.port}`);
+});
