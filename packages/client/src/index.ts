@@ -1,5 +1,5 @@
 import { Game } from "@react-remote-state/types";
-import { useEffect, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { connect, Socket as Client } from "socket.io-client";
 
 type Meta = {
@@ -34,6 +34,49 @@ type Reducer<GameCustom, PlayerCustom, Action> = (
   playerId: string
 ) => Game<GameCustom, PlayerCustom>;
 
+enum InternalActionType {
+  Reduce,
+  Update,
+}
+
+type InternalReduceAction<Action> = {
+  type: InternalActionType.Reduce;
+  client: Client;
+  playerId: string;
+  action: Action;
+};
+
+type InternalUpdateAction<GameCustom, PlayerCustom> = {
+  type: InternalActionType.Update;
+  game: Game<GameCustom, PlayerCustom>;
+};
+
+type InternalAction<GameCustom, PlayerCustom, Action> =
+  | InternalReduceAction<Action>
+  | InternalUpdateAction<GameCustom, PlayerCustom>;
+
+function wrapReducer<GameCustom, PlayerCustom, Action>(
+  reducer: Reducer<GameCustom, PlayerCustom, Action>
+) {
+  return (
+    game: Game<GameCustom, PlayerCustom> | undefined,
+    internalAction: InternalAction<GameCustom, PlayerCustom, Action>
+  ) => {
+    switch (internalAction.type) {
+      case InternalActionType.Update:
+        return internalAction.game;
+      case InternalActionType.Reduce:
+        if (!!game) {
+          internalAction.client.emit("update", {
+            game: reducer(game, internalAction.action, internalAction.playerId),
+          });
+        }
+
+        return game;
+    }
+  };
+}
+
 export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
   uri: string,
   reducer: Reducer<GameCustom, PlayerCustom, Action>,
@@ -47,7 +90,7 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
     isHostReady: false,
   });
 
-  let [game, setGame] = useState<Game<GameCustom, PlayerCustom>>();
+  let [game, internalDispatch] = useReducer(wrapReducer(reducer), undefined);
 
   let dispatch = (action: Action) => {
     if (!!meta.client && !!game) {
@@ -67,13 +110,13 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
         }
       });
 
-      meta.client.on("update", (update) => {
-        if (!meta.localPlayerId && !!update.playerId) {
-          setMeta({ ...meta, localPlayerId: update.playerId });
-        }
-
-        setGame(update.game);
+      meta.client.on("assign", (assign) => {
+        setMeta({ ...meta, localPlayerId: assign.playerId });
       });
+
+      meta.client.on("update", (update) =>
+        internalDispatch({ type: InternalActionType.Update, game: update.game })
+      );
     } else if (isHost(meta.localPlayerId, game) && !meta.isHostReady) {
       meta.client.on("join", (join) => {
         meta.client?.emit("accept", {
@@ -83,9 +126,12 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
       });
 
       meta.client.on("notify", (notify) => {
-        if (!!game) {
-          meta.client?.emit("update", {
-            game: reducer(game, notify.action, notify.playerId),
+        if (!!game && !!meta.client) {
+          internalDispatch({
+            type: InternalActionType.Reduce,
+            client: meta.client,
+            playerId: notify.playerId,
+            action: notify.action,
           });
         }
       });

@@ -58,9 +58,9 @@ function LinkerComponent<Data>(props: {
   let { onHostUpdate = noop, onGuestUpdate = noop, initialAction } = props;
   let [game, setGame] = useState<Game<Data, Data> | undefined>();
 
-  function handleHostConnected(hostGame: Game<Data, Data>) {
+  function handleHostConnected(hostGame: Game<Data, Data>, playerId: string) {
     setGame(hostGame);
-    onHostUpdate(hostGame);
+    onHostUpdate(hostGame, playerId);
   }
 
   return (
@@ -112,8 +112,6 @@ test("join game when gameId is provided", async () => {
   );
   expect(onGuestUpdate.mock?.lastCall?.[0]?.players.length).toBe(2);
   expect(onGuestUpdate.mock.lastCall?.[1]).toBeDefined();
-  console.log("guest", onGuestUpdate.mock.lastCall?.[1]);
-  console.log("host", onHostUpdate.mock.lastCall?.[1]);
   expect(onHostUpdate.mock.lastCall?.[1]).toBeDefined();
   expect(onHostUpdate.mock.lastCall?.[1]).not.toBe(
     onGuestUpdate.mock.lastCall?.[1]
@@ -143,4 +141,5 @@ test("host runs reducer from notified action", async () => {
 
   expect(onGuestUpdate.mock?.lastCall?.[0]?.custom).toBe(42);
   expect(onHostUpdate.mock?.lastCall?.[0]?.custom).toBe(42);
+  expect(onHostUpdate.mock?.lastCall?.[0]?.players.length).toBe(2);
 });

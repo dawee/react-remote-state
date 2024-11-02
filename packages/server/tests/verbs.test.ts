@@ -30,7 +30,7 @@ test("create game", () =>
   new Promise<void>(async (done) => {
     let host = await createClient();
 
-    host.on("start", (response) => {
+    host.on("update", (response) => {
       expect(response.playerId).toBeTypeOf("string");
       expect(response.game.players[0].id).toBeTypeOf("string");
       expect(response.game.players[0].host).toBe(true);
@@ -46,10 +46,11 @@ test("join game: accept", () =>
     let host = await createClient();
     let joiningPlayer = await createClient();
 
-    host.on("start", (start) => {
-      game = start.game as Game<any, any>;
-
-      joiningPlayer.emit("join", { gameId: game.id });
+    host.on("update", (update) => {
+      if (!game) {
+        game = update.game as Game<any, any>;
+        joiningPlayer.emit("join", { gameId: game.id });
+      }
     });
 
     host.on("join", (join) => {
@@ -70,9 +71,11 @@ test("join game: decline", () =>
     let host = await createClient();
     let joiningPlayer = await createClient();
 
-    host.on("start", (start) => {
-      game = start.game as Game<any, any>;
-      joiningPlayer.emit("join", { gameId: game.id });
+    host.on("update", (update) => {
+      if (!game) {
+        game = update.game as Game<any, any>;
+        joiningPlayer.emit("join", { gameId: game.id });
+      }
     });
 
     host.on("join", (join) => {
@@ -92,9 +95,11 @@ test("notify action", () =>
     let host = await createClient();
     let joiningPlayer = await createClient();
 
-    host.on("start", (start) => {
-      game = start.game as Game<any, any>;
-      joiningPlayer.emit("join", { gameId: game.id });
+    host.on("update", (update) => {
+      if (!game) {
+        game = update.game as Game<any, any>;
+        joiningPlayer.emit("join", { gameId: game.id });
+      }
     });
 
     host.on("join", (join) => {
@@ -123,9 +128,11 @@ test("update state", () =>
     let joiningPlayer = await createClient();
     let updateCount = 0;
 
-    host.on("start", (start) => {
-      game = start.game as Game<{ foo: number }, any>;
-      joiningPlayer.emit("join", { gameId: game.id });
+    host.on("update", (update) => {
+      if (!game) {
+        game = update.game as Game<any, any>;
+        joiningPlayer.emit("join", { gameId: game.id });
+      }
     });
 
     host.on("join", (join) => {
