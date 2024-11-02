@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 function TestComponent<Data>(props: {
-  onUpdate?: (game: Game<Data, Data>) => any;
+  onUpdate?: (game: Game<Data, Data>, playerId: string) => any;
   gameId?: string;
   initialAction?: Data;
 }) {
@@ -37,8 +37,8 @@ function TestComponent<Data>(props: {
   );
 
   useEffect(() => {
-    if (!!game) {
-      onUpdate(game);
+    if (!!game && !!playerId) {
+      onUpdate(game, playerId);
 
       if (!initialActionSent && !!initialAction) {
         dispatch(initialAction);
@@ -51,8 +51,8 @@ function TestComponent<Data>(props: {
 }
 
 function LinkerComponent<Data>(props: {
-  onHostUpdate?: (game: Game<Data, Data>) => any;
-  onGuestUpdate?: (game: Game<Data, Data>) => any;
+  onHostUpdate?: (game: Game<Data, Data>, playerId: string) => any;
+  onGuestUpdate?: (game: Game<Data, Data>, playerId: string) => any;
   initialAction?: Data;
 }) {
   let { onHostUpdate = noop, onGuestUpdate = noop, initialAction } = props;
@@ -79,7 +79,7 @@ function LinkerComponent<Data>(props: {
 }
 
 test("create game when no gameId is provided", async () => {
-  let onUpdate = vi.fn((game: Game<number, number>) => null);
+  let onUpdate = vi.fn((game: Game<number, number>, playerId: string) => null);
 
   render(<TestComponent onUpdate={onUpdate} />);
 
@@ -90,8 +90,12 @@ test("create game when no gameId is provided", async () => {
 });
 
 test("join game when gameId is provided", async () => {
-  let onHostUpdate = vi.fn((game: Game<number, number>) => null);
-  let onGuestUpdate = vi.fn((game: Game<number, number>) => null);
+  let onHostUpdate = vi.fn(
+    (game: Game<number, number>, playerId: string) => null
+  );
+  let onGuestUpdate = vi.fn(
+    (game: Game<number, number>, playerId: string) => null
+  );
 
   render(
     <LinkerComponent
@@ -107,11 +111,22 @@ test("join game when gameId is provided", async () => {
     onHostUpdate.mock?.lastCall?.[0]?.id
   );
   expect(onGuestUpdate.mock?.lastCall?.[0]?.players.length).toBe(2);
+  expect(onGuestUpdate.mock.lastCall?.[1]).toBeDefined();
+  console.log("guest", onGuestUpdate.mock.lastCall?.[1]);
+  console.log("host", onHostUpdate.mock.lastCall?.[1]);
+  expect(onHostUpdate.mock.lastCall?.[1]).toBeDefined();
+  expect(onHostUpdate.mock.lastCall?.[1]).not.toBe(
+    onGuestUpdate.mock.lastCall?.[1]
+  );
 });
 
 test("host runs reducer from notified action", async () => {
-  let onHostUpdate = vi.fn((game: Game<number, number>) => null);
-  let onGuestUpdate = vi.fn((game: Game<number, number>) => null);
+  let onHostUpdate = vi.fn(
+    (game: Game<number, number>, playerId: string) => null
+  );
+  let onGuestUpdate = vi.fn(
+    (game: Game<number, number>, playerId: string) => null
+  );
 
   render(
     <LinkerComponent

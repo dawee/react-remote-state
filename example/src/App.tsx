@@ -23,8 +23,16 @@ type Buzzer = {
   buzzingPlayerId?: string;
 };
 
-function reducer(game: Game<Buzzer, any>, action: Action, playerId: string) {
-  return game;
+function reducer(
+  game: Game<Buzzer, any>,
+  action: Action,
+  playerId: string
+): Game<Buzzer, any> {
+  switch (action.type) {
+    case ActionType.Buzz:
+      console.log("buzz action");
+      return { ...game, custom: { ...game.custom, buzzingPlayerId: playerId } };
+  }
 }
 
 function Landing() {
@@ -34,6 +42,25 @@ function Landing() {
     <div>
       <h1>Landing</h1>
       <button onClick={() => navigate("/new")}>New Game</button>
+    </div>
+  );
+}
+
+function GameView(props: {
+  game: Game<Buzzer, any>;
+  playerId: string;
+  dispatch: (action: Action) => any;
+}) {
+  let { game, playerId, dispatch } = props;
+
+  return (
+    <div>
+      <button
+        disabled={!!game.custom?.buzzingPlayerId}
+        onClick={() => dispatch({ type: ActionType.Buzz })}
+      >
+        Buzz
+      </button>
     </div>
   );
 }
@@ -53,7 +80,13 @@ function NewGame() {
     }
   });
 
-  return <div>{`Host, Players count: ${game?.players.length}`}</div>;
+  return (
+    <div>
+      {!!game && !!playerId ? (
+        <GameView game={game} playerId={playerId} dispatch={dispatch} />
+      ) : null}
+    </div>
+  );
 }
 
 function JoinGame() {
@@ -64,7 +97,13 @@ function JoinGame() {
     gameId
   );
 
-  return <div>{`Guest, Players count: ${game?.players.length}`}</div>;
+  return (
+    <div>
+      {!!game && !!playerId ? (
+        <GameView game={game} playerId={playerId} dispatch={dispatch} />
+      ) : null}
+    </div>
+  );
 }
 
 const router = createBrowserRouter([
