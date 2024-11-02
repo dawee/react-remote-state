@@ -1,6 +1,6 @@
 {
   "name": "rrs-server",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@react-remote-state/server": "0.0.1",
+    "@react-remote-state/server": "^1.0.0",
     "commander": "^12.1.0"
   }
 }
