@@ -16,6 +16,7 @@ let server = new Server({
       origin: options.corsOrigin,
       methods: ["GET", "POST"],
     },
+    transports: ["websocket"],
   },
 });
 

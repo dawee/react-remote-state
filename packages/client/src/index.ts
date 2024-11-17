@@ -100,7 +100,7 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 
   useEffect(() => {
     if (!meta.client) {
-      meta.client = connect(uri);
+      meta.client = connect(uri, { transports: ["websocket"] });
       meta.client.on("error", console.error);
       meta.client.on("connect", () => {
         if (gameId == undefined) {
