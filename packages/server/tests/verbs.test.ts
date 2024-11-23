@@ -154,27 +154,63 @@ test("update state", () =>
   }));
 
 test("share player's disconection", async () => {
-  let game: Game<{ foo: number }, any>;
+  let game!: Game<{ foo: number }, any>;
   let host = await createClient();
   let joiningPlayer = await createClient();
 
   host.on("update", (update) => {
-    if (!game) {
-      joiningPlayer.emit("join", { gameId: update.game.id });
-    }
-
     game = update.game;
   });
 
-  host.on("join", (join) => {
-    host.emit("accept", { playerId: join.playerId, gameId: game.id });
-  });
+  host.on("join", (join) =>
+    host.emit("accept", { playerId: join.playerId, gameId: game.id })
+  );
 
   host.emit("create");
+
+  await vi.waitFor(() => expect(game).toBeDefined());
+
+  joiningPlayer.emit("join", { gameId: game.id });
 
   await vi.waitFor(() => expect(game.players.length).toBe(2));
 
   joiningPlayer.disconnect();
 
   await vi.waitFor(() => expect(game.players[1].connected).toBe(false));
+});
+
+test("handle player's reconection", async () => {
+  let game!: Game<{ foo: number }, any>;
+  let host = await createClient();
+  let joiningPlayer = await createClient();
+  let joiningPlayerSocketId = joiningPlayer.id;
+  let reJoiningPlayer = await createClient();
+
+  host.on("update", (update) => {
+    game = update.game;
+  });
+
+  host.on("join", (join) =>
+    host.emit("accept", { playerId: join.playerId, gameId: game.id })
+  );
+
+  host.emit("create");
+
+  await vi.waitFor(() => expect(game).toBeDefined());
+
+  joiningPlayer.emit("join", { gameId: game.id });
+
+  await vi.waitFor(() => expect(game.players.length).toBe(2));
+
+  joiningPlayer.disconnect();
+
+  await vi.waitFor(() => expect(game.players[1].connected).toBe(false));
+
+  reJoiningPlayer.emit("rejoin", {
+    gameId: game.id,
+    playerId: game.players[1].id,
+    socketId: joiningPlayerSocketId,
+  });
+
+  await vi.waitFor(() => expect(game.players[1].connected).toBe(true));
 });

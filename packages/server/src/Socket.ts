@@ -15,6 +15,8 @@ import {
   updateEventValidator,
   UpdateEvent,
   ServerUpdateEvent,
+  rejoinEventValidator,
+  RejoinEvent,
 } from "@react-remote-state/types";
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
@@ -140,6 +142,66 @@ export default class Socket {
     this.io.to(hostSocketId).emit("join", { playerId: this.playerId });
     this.client.emit("assign", { playerId: this.playerId });
     this.gameId = joinEvent.gameId;
+  }
+
+  private async onRejoin(data: unknown): Promise<void> {
+    let decoded = rejoinEventValidator.decode(data);
+
+    if (isLeft(decoded)) {
+      this.client.emit(
+        "error",
+        `Invalid request: ${PathReporter.report(decoded).join("\n")}`
+      );
+      return;
+    }
+
+    let rejoinEvent: RejoinEvent = decoded.right;
+    let serverGame, hostSocketId;
+
+    try {
+      [serverGame, hostSocketId] = await this.getGame(rejoinEvent.gameId);
+    } catch (error) {
+      this.client.emit("error", (error as Error).message);
+      return;
+    }
+
+    let player = serverGame.game.players.find(
+      (p) => p.id == rejoinEvent.playerId
+    );
+
+    if (!player) {
+      this.client.emit("error", "Player doesn't exist in that game");
+
+      return;
+    }
+
+    if (serverGame.playerSocketIds[player.id] != rejoinEvent.socketId) {
+      this.client.emit("error", "Player socket id is incorrect");
+
+      return;
+    }
+
+    this.gameId = rejoinEvent.gameId;
+    this.playerId = rejoinEvent.playerId;
+
+    serverGame.playerSocketIds[player.id] = this.client.id;
+    serverGame.game.players = serverGame.game.players.map((p) =>
+      p.id == player.id ? { ...p, connected: true } : p
+    );
+
+    await this.cache.set(
+      { id: serverGame.game.id, segment: "game" },
+      JSON.stringify(serverGame),
+      3600000
+    );
+
+    let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
+      playerId: this.playerId,
+      game: serverGame.game,
+    };
+
+    this.client.join(`game-${serverGame.game.id}`);
+    this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
   }
 
   private async onAccept(data: unknown): Promise<void> {
@@ -351,11 +413,13 @@ export default class Socket {
     };
 
     this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
+    this.client.removeAllListeners();
   }
 
   public bind() {
     this.client.on("create", () => this.onCreate());
     this.client.on("join", (data: unknown) => this.onJoin(data));
+    this.client.on("rejoin", (data: unknown) => this.onRejoin(data));
     this.client.on("accept", (data: unknown) => this.onAccept(data));
     this.client.on("decline", (data: unknown) => this.onDecline(data));
     this.client.on("notify", (data: unknown) => this.onNotify(data));

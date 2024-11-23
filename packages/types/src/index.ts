@@ -49,6 +49,16 @@ export const joinEventValidator = t.type({
 
 export type JoinEvent = t.TypeOf<typeof joinEventValidator>;
 
+// rejoin
+
+export const rejoinEventValidator = t.type({
+  gameId: t.string,
+  playerId: t.string,
+  socketId: t.string,
+});
+
+export type RejoinEvent = t.TypeOf<typeof rejoinEventValidator>;
+
 // accept
 
 export const acceptEventValidator = t.type({
