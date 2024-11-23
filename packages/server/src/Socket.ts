@@ -26,11 +26,15 @@ export default class Socket {
   client: IOSocket;
   cache: Catbox.Client<any>;
   io: IOServer;
+  gameId: string | null;
+  playerId: string | null;
 
   constructor(io: IOServer, client: IOSocket, cache: Catbox.Client<any>) {
     this.io = io;
     this.client = client;
     this.cache = cache;
+    this.gameId = null;
+    this.playerId = null;
   }
 
   private async getGame(
@@ -65,27 +69,30 @@ export default class Socket {
   }
 
   private async onCreate(): Promise<void> {
-    let playerId = uid.rnd();
+    this.playerId = uid.rnd();
+    this.gameId = uid.rnd();
+
     let serverGame: ServerGame<unknown, unknown> = {
       game: {
-        id: uid.rnd(),
+        id: this.gameId,
         players: [
           {
-            id: playerId,
+            id: this.playerId,
             host: true,
+            connected: true,
             custom: undefined,
           },
         ],
         custom: undefined,
       },
       playerSocketIds: {
-        [playerId]: this.client.id,
+        [this.playerId]: this.client.id,
       },
       playersQueue: {},
     };
 
     let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
-      playerId,
+      playerId: this.playerId,
       game: serverGame.game,
     };
 
@@ -97,11 +104,11 @@ export default class Socket {
 
     this.client.join(`game-${serverGame.game.id}`);
     this.client.emit("update", serverUpdate);
-    this.client.emit("assign", { playerId });
+    this.client.emit("assign", { playerId: this.playerId });
   }
 
   private async onJoin(data: unknown): Promise<void> {
-    let playerId = uid.rnd();
+    this.playerId = uid.rnd();
     let decoded = joinEventValidator.decode(data);
 
     if (isLeft(decoded)) {
@@ -122,7 +129,7 @@ export default class Socket {
       return;
     }
 
-    serverGame.playersQueue[playerId] = this.client.id;
+    serverGame.playersQueue[this.playerId] = this.client.id;
 
     await this.cache.set(
       { id: serverGame.game.id, segment: "game" },
@@ -130,8 +137,9 @@ export default class Socket {
       3600000
     );
 
-    this.io.to(hostSocketId).emit("join", { playerId });
-    this.client.emit("assign", { playerId });
+    this.io.to(hostSocketId).emit("join", { playerId: this.playerId });
+    this.client.emit("assign", { playerId: this.playerId });
+    this.gameId = joinEvent.gameId;
   }
 
   private async onAccept(data: unknown): Promise<void> {
@@ -174,7 +182,9 @@ export default class Socket {
       id: acceptEvent.playerId,
       host: false,
       custom: undefined,
+      connected: true,
     });
+
     serverGame.playerSocketIds[acceptEvent.playerId] = joiningPlayerSocketId;
     delete serverGame.playersQueue[acceptEvent.playerId];
 
@@ -313,6 +323,36 @@ export default class Socket {
     this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
   }
 
+  private async disconnect() {
+    if (!this.playerId || !this.gameId) {
+      return;
+    }
+
+    let serverGame, hostSocketId;
+
+    try {
+      [serverGame, hostSocketId] = await this.getGame(this.gameId);
+    } catch (error) {
+      return;
+    }
+
+    serverGame.game.players = serverGame.game.players.map((player) =>
+      player.id == this.playerId ? { ...player, connected: false } : player
+    );
+
+    await this.cache.set(
+      { id: serverGame.game.id, segment: "game" },
+      JSON.stringify(serverGame),
+      3600000
+    );
+
+    let updateEvent: UpdateEvent<unknown, unknown> = {
+      game: serverGame.game,
+    };
+
+    this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
+  }
+
   public bind() {
     this.client.on("create", () => this.onCreate());
     this.client.on("join", (data: unknown) => this.onJoin(data));
@@ -320,5 +360,6 @@ export default class Socket {
     this.client.on("decline", (data: unknown) => this.onDecline(data));
     this.client.on("notify", (data: unknown) => this.onNotify(data));
     this.client.on("update", (data: unknown) => this.onUpdate(data));
+    this.client.on("disconnect", () => this.disconnect());
   }
 }

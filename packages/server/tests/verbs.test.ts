@@ -1,4 +1,4 @@
-import { expect, test, beforeEach, afterEach, assert } from "vitest";
+import { expect, test, beforeEach, afterEach, vi } from "vitest";
 import Server from "../src/Server";
 import { io as ioc, type Socket as Client } from "socket.io-client";
 import { Game } from "@react-remote-state/types";
@@ -152,3 +152,29 @@ test("update state", () =>
 
     host.emit("create");
   }));
+
+test("share player's disconection", async () => {
+  let game: Game<{ foo: number }, any>;
+  let host = await createClient();
+  let joiningPlayer = await createClient();
+
+  host.on("update", (update) => {
+    if (!game) {
+      joiningPlayer.emit("join", { gameId: update.game.id });
+    }
+
+    game = update.game;
+  });
+
+  host.on("join", (join) => {
+    host.emit("accept", { playerId: join.playerId, gameId: game.id });
+  });
+
+  host.emit("create");
+
+  await vi.waitFor(() => expect(game.players.length).toBe(2));
+
+  joiningPlayer.disconnect();
+
+  await vi.waitFor(() => expect(game.players[1].connected).toBe(false));
+});
