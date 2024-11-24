@@ -1,11 +1,14 @@
-import { Game } from "@react-remote-state/types";
+import { Game, RejoinEvent } from "@react-remote-state/types";
 import { useEffect, useReducer, useState } from "react";
-import { connect, Socket as Client } from "socket.io-client";
+import { Socket as Client } from "socket.io-client";
+import socket from "./socket";
+import { flow } from "lodash";
 
 type Meta = {
   client?: Client;
   isHostReady: boolean;
   localPlayerId?: string;
+  isGuestReady: boolean;
 };
 
 export function getPlayer<GameCustom, PlayerCustom>(
@@ -27,6 +30,11 @@ export function isHost<GameCustom, PlayerCustom>(
 
   return player?.host;
 }
+
+type PlayerCache = {
+  playerId: string;
+  socketId: string;
+};
 
 type Reducer<GameCustom, PlayerCustom, Action> = (
   game: Game<GameCustom, PlayerCustom>,
@@ -88,6 +96,7 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 ] {
   let [meta, setMeta] = useState<Meta>({
     isHostReady: false,
+    isGuestReady: false,
   });
 
   let [game, internalDispatch] = useReducer(wrapReducer(reducer), undefined);
@@ -100,43 +109,79 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 
   useEffect(() => {
     if (!meta.client) {
-      meta.client = connect(uri, { transports: ["websocket"] });
-      meta.client.on("error", console.error);
-      meta.client.on("connect", () => {
-        if (gameId == undefined) {
-          meta.client?.emit("create");
-        } else {
-          meta.client?.emit("join", { gameId });
-        }
-      });
+      meta.client = socket.connect(uri, { transports: ["websocket"] });
+    }
 
-      meta.client.on("assign", (assign) => {
-        setMeta({ ...meta, localPlayerId: assign.playerId });
-      });
+    if (!!meta.client) {
+      if (!meta.isGuestReady) {
+        meta.client.on("error", console.error);
+        meta.client.on("connect", () => {
+          if (gameId == undefined) {
+            meta.client?.emit("create");
+          } else {
+            let playerCache = flow(
+              () => (!!gameId ? sessionStorage.getItem(gameId) : null),
+              (cache) => (!!cache ? (JSON.parse(cache) as PlayerCache) : null)
+            )();
 
-      meta.client.on("update", (update) =>
-        internalDispatch({ type: InternalActionType.Update, game: update.game })
-      );
-    } else if (isHost(meta.localPlayerId, game) && !meta.isHostReady) {
-      meta.client.on("join", (join) => {
-        meta.client?.emit("accept", {
-          gameId: game?.id,
-          playerId: join.playerId,
+            if (!!playerCache) {
+              let rejoin: RejoinEvent = {
+                playerId: playerCache.playerId,
+                socketId: playerCache.socketId,
+                gameId,
+              };
+
+              meta.client?.emit("rejoin", rejoin);
+            } else {
+              meta.client?.emit("join", { gameId });
+            }
+          }
         });
-      });
 
-      meta.client.on("notify", (notify) => {
-        if (!!game && !!meta.client) {
+        meta.client.on("assign", (assign) => {
+          setMeta({ ...meta, localPlayerId: assign.playerId });
+
+          if (!!meta?.client?.id && !!game?.id) {
+            let playerCache: PlayerCache = {
+              playerId: assign.playerId,
+              socketId: meta.client?.id,
+            };
+
+            sessionStorage.setItem(game.id, JSON.stringify(playerCache));
+          }
+        });
+
+        meta.client.on("update", (update) =>
           internalDispatch({
-            type: InternalActionType.Reduce,
-            client: meta.client,
-            playerId: notify.playerId,
-            action: notify.action,
-          });
-        }
-      });
+            type: InternalActionType.Update,
+            game: update.game,
+          })
+        );
 
-      setMeta({ ...meta, isHostReady: true });
+        setMeta({ ...meta, isGuestReady: true });
+      }
+
+      if (isHost(meta.localPlayerId, game) && !meta.isHostReady) {
+        meta.client.on("join", (join) => {
+          meta.client?.emit("accept", {
+            gameId: game?.id,
+            playerId: join.playerId,
+          });
+        });
+
+        meta.client.on("notify", (notify) => {
+          if (!!game && !!meta.client) {
+            internalDispatch({
+              type: InternalActionType.Reduce,
+              client: meta.client,
+              playerId: notify.playerId,
+              action: notify.action,
+            });
+          }
+        });
+
+        setMeta({ ...meta, isHostReady: true });
+      }
     }
   });
 

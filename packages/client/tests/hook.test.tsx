@@ -4,6 +4,8 @@ import { Server } from "@react-remote-state/server";
 import { render, waitFor } from "@testing-library/react";
 import React, { useEffect, useState } from "react";
 import { useRemoteReducer } from "../src";
+import { Socket as Client } from "socket.io-client";
+import socket from "../src/socket";
 import { Game } from "@react-remote-state/types";
 import { noop } from "lodash";
 
@@ -11,10 +13,36 @@ let server: Server;
 
 global.MutationObserver = MutationObserver;
 
+function createSessionStorage(): Storage {
+  let storage: Record<string, string> = {};
+
+  return {
+    setItem(key: string, value: string) {
+      storage[key] = value;
+    },
+    getItem(key: string) {
+      return storage[key];
+    },
+    get length() {
+      return Object.keys(storage).length;
+    },
+    clear() {
+      storage = {};
+    },
+    removeItem(key: string) {
+      delete storage[key];
+    },
+    key(index) {
+      return Object.keys(storage)[index];
+    },
+  };
+}
+
 beforeEach(
   () =>
     new Promise<void>((done) => {
       server = new Server();
+      global.sessionStorage = createSessionStorage();
       server.start(done);
     })
 );
