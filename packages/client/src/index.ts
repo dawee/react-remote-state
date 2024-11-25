@@ -109,7 +109,10 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
 
   useEffect(() => {
     if (!meta.client) {
-      meta.client = socket.connect(uri, { transports: ["websocket"] });
+      setMeta({
+        ...meta,
+        client: socket.connect(uri, { transports: ["websocket"] }),
+      });
     }
 
     if (!!meta.client) {
