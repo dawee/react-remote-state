@@ -120,7 +120,10 @@ export default class Socket {
 
     this.client.join(`game-${serverGame.game.id}`);
     this.client.emit("update", serverUpdate);
-    this.client.emit("assign", { playerId: this.playerId });
+    this.client.emit("assign", {
+      playerId: this.playerId,
+      gameId: serverGame.game.id,
+    });
 
     this.logger.debug("game created");
   }

@@ -1,5 +1,5 @@
 import MutationObserver from "@sheerun/mutationobserver-shim";
-import { expect, test, beforeEach, afterEach, vi } from "vitest";
+import { expect, test, beforeEach, afterEach, vi, Mock } from "vitest";
 import { Server } from "@react-remote-state/server";
 import { render, waitFor } from "@testing-library/react";
 import React, { useEffect, useState } from "react";
@@ -9,17 +9,28 @@ import socket from "../src/socket";
 import { Game } from "@react-remote-state/types";
 import { noop } from "lodash";
 
+type MockStorage = {
+  setItem: Mock<(key: string, value: string) => void>;
+  getItem(key: string): string;
+  readonly length: number;
+  clear(): void;
+  removeItem(key: string): void;
+  key(index: number): string;
+};
+
 let server: Server;
+let hostStorage!: MockStorage;
+let guestStorage!: MockStorage;
 
 global.MutationObserver = MutationObserver;
 
-function createSessionStorage(): Storage {
+function createSessionStorage() {
   let storage: Record<string, string> = {};
 
   return {
-    setItem(key: string, value: string) {
+    setItem: vi.fn((key: string, value: string) => {
       storage[key] = value;
-    },
+    }),
     getItem(key: string) {
       return storage[key];
     },
@@ -32,7 +43,7 @@ function createSessionStorage(): Storage {
     removeItem(key: string) {
       delete storage[key];
     },
-    key(index) {
+    key(index: number) {
       return Object.keys(storage)[index];
     },
   };
@@ -42,7 +53,8 @@ beforeEach(
   () =>
     new Promise<void>((done) => {
       server = new Server();
-      global.sessionStorage = createSessionStorage();
+      hostStorage = createSessionStorage();
+      guestStorage = createSessionStorage();
       server.start(done);
     })
 );
@@ -52,16 +64,18 @@ afterEach(async () => {
 });
 
 function TestComponent<Data>(props: {
+  storage: MockStorage;
   onUpdate?: (game: Game<Data, Data>, playerId: string) => any;
   gameId?: string;
   initialAction?: Data;
 }) {
-  let { onUpdate = noop, initialAction, gameId } = props;
+  let { storage, onUpdate = noop, initialAction, gameId } = props;
   let [initialActionSent, setInitialActionSent] = useState(false);
   let [game, playerId, dispatch] = useRemoteReducer<Data, Data, Data>(
     `http://localhost:${server.port}`,
     (game, action, playerId) => ({ ...game, custom: action }),
-    gameId
+    gameId,
+    storage
   );
 
   useEffect(() => {
@@ -93,13 +107,18 @@ function LinkerComponent<Data>(props: {
 
   return (
     <>
-      <TestComponent key="host" onUpdate={handleHostConnected} />
+      <TestComponent
+        key="host"
+        onUpdate={handleHostConnected}
+        storage={hostStorage}
+      />
       {!!game && (
         <TestComponent
           key="guest"
           onUpdate={onGuestUpdate}
           gameId={game.id}
           initialAction={initialAction}
+          storage={guestStorage}
         />
       )}
     </>
@@ -110,13 +129,14 @@ test("create game when no gameId is provided", async () => {
   let game!: Game<number, number>;
 
   let onUpdate = vi.fn(
-    (hostGame: Game<number, number>, playerId: string) => (hostGame = game)
+    (hostGame: Game<number, number>, playerId: string) => (game = hostGame)
   );
 
-  render(<TestComponent onUpdate={onUpdate} />);
+  render(<TestComponent onUpdate={onUpdate} storage={hostStorage} />);
 
-  await waitFor(() => expect(onUpdate).toBeCalled());
+  await waitFor(() => expect(game).toBeDefined());
 
+  expect(hostStorage.setItem).toBeCalledTimes(1);
   expect(onUpdate.mock?.lastCall?.[0]?.id).toBeTypeOf("string");
   expect(onUpdate.mock?.lastCall?.[0]?.players.length).toBe(1);
 });

@@ -88,7 +88,8 @@ function wrapReducer<GameCustom, PlayerCustom, Action>(
 export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
   uri: string,
   reducer: Reducer<GameCustom, PlayerCustom, Action>,
-  gameId?: string
+  gameId?: string | null,
+  storage: Storage = sessionStorage
 ): [
   Game<GameCustom, PlayerCustom> | undefined,
   string | undefined,
@@ -123,7 +124,7 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
             meta.client?.emit("create");
           } else if (!!gameId) {
             let playerCache = flow(
-              () => (!!gameId ? sessionStorage.getItem(gameId) : null),
+              () => (!!gameId ? storage.getItem(gameId) : null),
               (cache) => (!!cache ? (JSON.parse(cache) as PlayerCache) : null)
             )();
 
@@ -144,13 +145,13 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
         meta.client.on("assign", (assign) => {
           setMeta({ ...meta, localPlayerId: assign.playerId });
 
-          if (!!meta?.client?.id && !!game?.id) {
+          if (!!meta?.client?.id) {
             let playerCache: PlayerCache = {
               playerId: assign.playerId,
               socketId: meta.client?.id,
             };
 
-            sessionStorage.setItem(game.id, JSON.stringify(playerCache));
+            storage.setItem(assign.gameId, JSON.stringify(playerCache));
           }
         });
 
