@@ -1,6 +1,6 @@
 {
   "name": "rrs-server",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "main": "index.js",
   "scripts": {
     "start": "node ./bin/rrs-server --log-level debug",
@@ -11,7 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@react-remote-state/server": "^1.0.0",
+    "@react-remote-state/server": "^1.1.2",
     "commander": "^12.1.0"
   }
 }
