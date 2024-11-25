@@ -116,9 +116,9 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
       if (!meta.isGuestReady) {
         meta.client.on("error", console.error);
         meta.client.on("connect", () => {
-          if (gameId == undefined) {
+          if (gameId == undefined && !game) {
             meta.client?.emit("create");
-          } else {
+          } else if (!!gameId) {
             let playerCache = flow(
               () => (!!gameId ? sessionStorage.getItem(gameId) : null),
               (cache) => (!!cache ? (JSON.parse(cache) as PlayerCache) : null)

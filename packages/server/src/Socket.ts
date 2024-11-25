@@ -21,6 +21,7 @@ import {
 import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
 import * as t from "io-ts";
+import { Logger } from "pino";
 
 const uid = new ShortUniqueId({ length: 10 });
 
@@ -30,13 +31,20 @@ export default class Socket {
   io: IOServer;
   gameId: string | null;
   playerId: string | null;
+  logger: Logger<never, boolean>;
 
-  constructor(io: IOServer, client: IOSocket, cache: Catbox.Client<any>) {
+  constructor(
+    io: IOServer,
+    client: IOSocket,
+    cache: Catbox.Client<any>,
+    rootLogger: Logger<never, boolean>
+  ) {
     this.io = io;
     this.client = client;
     this.cache = cache;
     this.gameId = null;
     this.playerId = null;
+    this.logger = rootLogger.child({ clientId: client.id });
   }
 
   private async getGame(
@@ -71,8 +79,14 @@ export default class Socket {
   }
 
   private async onCreate(): Promise<void> {
+    this.logger.debug("create game");
     this.playerId = uid.rnd();
     this.gameId = uid.rnd();
+
+    this.logger = this.logger.child({
+      playerId: this.playerId,
+      gameId: this.gameId,
+    });
 
     let serverGame: ServerGame<unknown, unknown> = {
       game: {
@@ -107,6 +121,8 @@ export default class Socket {
     this.client.join(`game-${serverGame.game.id}`);
     this.client.emit("update", serverUpdate);
     this.client.emit("assign", { playerId: this.playerId });
+
+    this.logger.debug("game created");
   }
 
   private async onJoin(data: unknown): Promise<void> {
@@ -142,6 +158,13 @@ export default class Socket {
     this.io.to(hostSocketId).emit("join", { playerId: this.playerId });
     this.client.emit("assign", { playerId: this.playerId });
     this.gameId = joinEvent.gameId;
+
+    this.logger = this.logger.child({
+      playerId: this.playerId,
+      gameId: this.gameId,
+    });
+
+    this.logger.debug("join game request sent");
   }
 
   private async onRejoin(data: unknown): Promise<void> {
@@ -184,6 +207,11 @@ export default class Socket {
     this.gameId = rejoinEvent.gameId;
     this.playerId = rejoinEvent.playerId;
 
+    this.logger = this.logger.child({
+      playerId: this.playerId,
+      gameId: this.gameId,
+    });
+
     serverGame.playerSocketIds[player.id] = this.client.id;
     serverGame.game.players = serverGame.game.players.map((p) =>
       p.id == player.id ? { ...p, connected: true } : p
@@ -202,6 +230,8 @@ export default class Socket {
 
     this.client.join(`game-${serverGame.game.id}`);
     this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
+
+    this.logger.debug("game rejoined");
   }
 
   private async onAccept(data: unknown): Promise<void> {
@@ -217,6 +247,11 @@ export default class Socket {
 
     let acceptEvent: AcceptEvent = decoded.right;
     let serverGame, hostSocketId;
+
+    this.logger.debug(
+      { incommingPlayerId: acceptEvent.playerId },
+      "accepting new player"
+    );
 
     try {
       [serverGame, hostSocketId] = await this.getGame(acceptEvent.gameId);
@@ -264,6 +299,8 @@ export default class Socket {
     };
 
     this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
+
+    this.logger.debug("new player accepted");
   }
 
   private async onDecline(data: unknown): Promise<void> {
@@ -308,6 +345,8 @@ export default class Socket {
     this.io
       .to(joiningPlayerSocketId)
       .emit("decline", { gameId: serverGame.game.id });
+
+    this.logger.debug("new player declined");
   }
 
   private async onNotify(data: unknown): Promise<void> {
@@ -346,6 +385,8 @@ export default class Socket {
     this.io
       .to(hostSocketId)
       .emit("notify", { action: notifyEvent.action, playerId });
+
+    this.logger.debug("notify action");
   }
 
   private async onUpdate(data: unknown): Promise<void> {
@@ -383,6 +424,7 @@ export default class Socket {
     );
 
     this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
+    this.logger.debug("update sent to all players");
   }
 
   private async disconnect() {
@@ -414,6 +456,7 @@ export default class Socket {
 
     this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
     this.client.removeAllListeners();
+    this.logger.debug("player disconnected");
   }
 
   public bind() {

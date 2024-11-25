@@ -6,11 +6,13 @@ import {
   Server as IOServer,
   ServerOptions as IOServerOptions,
 } from "socket.io";
+import pino, { LevelWithSilentOrString, Logger } from "pino";
 import Socket from "./Socket";
 
 interface ServerOptions {
   port?: number;
   io?: IOServerOptions;
+  logLevel: LevelWithSilentOrString;
 }
 
 export default class Server {
@@ -18,8 +20,12 @@ export default class Server {
   io: IOServer;
   httpServer: HTTPServer;
   cache: Catbox.Client<any>;
+  logger: Logger<never, boolean>;
 
   constructor(options?: ServerOptions) {
+    this.logger = pino({
+      level: options?.logLevel ?? "warn",
+    });
     this.cache = new Catbox.Client(CatboxMemory);
     this.options = options;
     this.httpServer = createServer();
@@ -34,7 +40,9 @@ export default class Server {
     await this.cache.start();
 
     this.io.on("connection", (client) => {
-      let socket = new Socket(this.io, client, this.cache);
+      let socket = new Socket(this.io, client, this.cache, this.logger);
+
+      this.logger.debug({ clientId: client.id }, "New client connected");
 
       socket.bind();
     });

@@ -4,6 +4,7 @@ const { Server } = require("@react-remote-state/server");
 const { program } = require("commander");
 
 program.option("--port <port>", "Port to listen to", "4354");
+program.option("--log-level <level>", "Log level", "error");
 program.option("--cors-origin", "CORS Origin expression", "*");
 program.parse();
 
@@ -11,6 +12,7 @@ let options = program.opts();
 
 let server = new Server({
   port: parseInt(options.port),
+  logLevel: options.logLevel,
   io: {
     cors: {
       origin: options.corsOrigin,

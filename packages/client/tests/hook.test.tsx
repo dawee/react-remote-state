@@ -107,7 +107,11 @@ function LinkerComponent<Data>(props: {
 }
 
 test("create game when no gameId is provided", async () => {
-  let onUpdate = vi.fn((game: Game<number, number>, playerId: string) => null);
+  let game!: Game<number, number>;
+
+  let onUpdate = vi.fn(
+    (hostGame: Game<number, number>, playerId: string) => (hostGame = game)
+  );
 
   render(<TestComponent onUpdate={onUpdate} />);
 
