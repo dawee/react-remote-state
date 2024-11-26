@@ -120,6 +120,7 @@ export default class Socket {
 
     this.client.join(`game-${serverGame.game.id}`);
     this.client.emit("update", serverUpdate);
+
     this.client.emit("assign", {
       playerId: this.playerId,
       gameId: serverGame.game.id,
@@ -159,7 +160,10 @@ export default class Socket {
     );
 
     this.io.to(hostSocketId).emit("join", { playerId: this.playerId });
-    this.client.emit("assign", { playerId: this.playerId });
+    this.client.emit("assign", {
+      playerId: this.playerId,
+      gameId: serverGame.game.id,
+    });
     this.gameId = joinEvent.gameId;
 
     this.logger = this.logger.child({
@@ -232,8 +236,13 @@ export default class Socket {
     };
 
     this.client.join(`game-${serverGame.game.id}`);
-    this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
 
+    this.client.emit("assign", {
+      playerId: this.playerId,
+      gameId: this.gameId,
+    });
+
+    this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
     this.logger.debug("game rejoined");
   }
 
