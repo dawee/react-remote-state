@@ -1,5 +1,5 @@
 import { createClient, RedisClientType } from "redis";
-import { ServerGame } from "@react-remote-state/types";
+import { ServerGame } from "./types";
 
 const GAME_EXPIRATION = 3600;
 const LOCK_EXPIRATION = 30;

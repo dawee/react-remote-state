@@ -1,44 +1,16 @@
 import * as t from "io-ts";
 
-// player
+export type Player<PlayerCustom> = {
+  id: string;
+  host: boolean;
+  connected: boolean;
+  custom?: PlayerCustom;
+};
 
-export const playerValidator = <PlayerCustom extends t.Mixed>(
-  playerCustom: PlayerCustom
-) =>
-  t.type({
-    id: t.string,
-    host: t.boolean,
-    connected: t.boolean,
-    custom: t.union([playerCustom, t.undefined]),
-  });
-
-export type Player<PlayerCustom> = t.TypeOf<
-  ReturnType<typeof playerValidator<t.Type<PlayerCustom>>>
->;
-
-// game
-
-export const gameValidator = <
-  GameCustom extends t.Mixed,
-  PlayerCustom extends t.Mixed
->(
-  gameCustom: GameCustom,
-  playerCustom: PlayerCustom
-) =>
-  t.type({
-    id: t.string,
-    players: t.array(playerValidator(playerCustom)),
-    custom: t.union([gameCustom, t.undefined]),
-  });
-
-export type Game<GameCustom, PlayerCustom> = t.TypeOf<
-  ReturnType<typeof gameValidator<t.Type<GameCustom>, t.Type<PlayerCustom>>>
->;
-
-export type ServerGame<GameCustom, PlayerCustom> = {
-  game: Game<GameCustom, PlayerCustom>;
-  playerSocketIds: Record<string, string>;
-  playersQueue: Record<string, string>;
+export type Game<GameCustom, PlayerCustom> = {
+  id: string;
+  players: Player<PlayerCustom>[];
+  custom: GameCustom;
 };
 
 // join
@@ -96,7 +68,9 @@ export const updateEventValidator = <
   playerCustom: PlayerCustom
 ) =>
   t.type({
-    game: gameValidator(gameCustom, playerCustom),
+    gameId: t.string,
+    gameCustom: gameCustom,
+    playerCustoms: t.record(t.string, playerCustom),
   });
 
 export type UpdateEvent<GameCustom, PlayerCustom> = t.TypeOf<
@@ -105,9 +79,7 @@ export type UpdateEvent<GameCustom, PlayerCustom> = t.TypeOf<
   >
 >;
 
-export type ServerUpdateEvent<GameCustom, PlayerCustom> = UpdateEvent<
-  GameCustom,
-  PlayerCustom
-> & {
+export type ServerUpdateEvent<GameCustom, PlayerCustom> = {
   playerId?: string;
+  game: Game<GameCustom, PlayerCustom>;
 };

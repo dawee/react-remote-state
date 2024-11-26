@@ -1,5 +1,6 @@
-import { Game } from "@react-remote-state/types";
+import { Game, UpdateEvent } from "@react-remote-state/types";
 import { InternalAction, InternalActionType, Reducer } from "./types";
+import { chain, Dictionary, entries, flow, keyBy, zip } from "lodash";
 
 export function createInternalReducer<GameCustom, PlayerCustom, Action>(
   reducer: Reducer<GameCustom, PlayerCustom, Action>,
@@ -14,9 +15,27 @@ export function createInternalReducer<GameCustom, PlayerCustom, Action>(
         return internalAction.game;
       case InternalActionType.Reduce:
         if (!!game) {
-          internalAction.client.emit("update", {
-            game: reducer(game, internalAction.action, internalAction.playerId),
-          });
+          let updatedGame = reducer(
+            game,
+            internalAction.action,
+            internalAction.playerId
+          );
+
+          let playerCustoms: Record<string, PlayerCustom> = {};
+
+          for (let player of updatedGame.players) {
+            if (!!player.custom) {
+              playerCustoms[player.id] = player.custom;
+            }
+          }
+
+          let update: UpdateEvent<GameCustom, PlayerCustom> = {
+            gameId: game.id,
+            gameCustom: updatedGame.custom,
+            playerCustoms,
+          };
+
+          internalAction.client.emit("update", update);
         }
 
         return game;

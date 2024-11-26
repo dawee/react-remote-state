@@ -1,9 +1,7 @@
 import { Socket as IOSocket } from "socket.io";
 import { PathReporter } from "io-ts/PathReporter";
 import { isLeft } from "fp-ts/Either";
-import Catbox from "@hapi/catbox";
 import {
-  ServerGame,
   joinEventValidator,
   JoinEvent,
   acceptEventValidator,
@@ -23,6 +21,7 @@ import ShortUniqueId from "short-unique-id";
 import * as t from "io-ts";
 import { Logger } from "pino";
 import { Database } from "./Database";
+import { ServerGame } from "./types";
 
 const uid = new ShortUniqueId({ length: 10 });
 
@@ -375,7 +374,7 @@ export default class Socket {
 
     try {
       [serverGame, hostSocketId] = await this.database.getGame(
-        updateEvent.game.id
+        updateEvent.gameId
       );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
@@ -387,11 +386,21 @@ export default class Socket {
       return;
     }
 
-    serverGame.game = updateEvent.game;
+    serverGame.game.custom = updateEvent.gameCustom;
+
+    serverGame.game.players = serverGame.game.players.map((player) =>
+      player.id in updateEvent.playerCustoms
+        ? { ...player, custom: updateEvent.playerCustoms[player.id] }
+        : player
+    );
 
     await this.database.saveGame(serverGame);
 
-    this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
+    let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
+      game: serverGame.game,
+    };
+
+    this.io.to(`game-${serverGame.game.id}`).emit("update", serverUpdate);
     this.logger.debug("update sent to all players");
   }
 
@@ -414,7 +423,7 @@ export default class Socket {
 
     await this.database.saveGame(serverGame);
 
-    let updateEvent: UpdateEvent<unknown, unknown> = {
+    let updateEvent: ServerUpdateEvent<unknown, unknown> = {
       game: serverGame.game,
     };
 

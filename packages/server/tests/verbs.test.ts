@@ -1,7 +1,7 @@
 import { expect, test, beforeEach, afterEach, vi } from "vitest";
 import Server from "../src/Server";
 import { io as ioc, type Socket as Client } from "socket.io-client";
-import { Game } from "@react-remote-state/types";
+import { Game, UpdateEvent } from "@react-remote-state/types";
 
 let server: Server;
 
@@ -143,10 +143,16 @@ test("update state", () =>
       updateCount++;
 
       if (updateCount == 2) {
-        expect(update.game.custom.foo).toBe(42);
+        expect(update.game?.custom.foo).toBe(42);
         done();
       } else {
-        host.emit("update", { game: { ...update.game, custom: { foo: 42 } } });
+        let updateEvent: UpdateEvent<{ foo: number }, any> = {
+          gameId: update.game.id,
+          gameCustom: { foo: 42 },
+          playerCustoms: {},
+        };
+
+        host.emit("update", updateEvent);
       }
     });
 
