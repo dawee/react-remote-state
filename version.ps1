@@ -14,7 +14,7 @@ $typesPackage = Get-Content -Raw .\packages\types\package.json | ConvertFrom-Jso
 $typesVersion = $typesPackage.version
 
 # server
-npm install -S @react-remote-state/types@$typesVersion -w packages/server
+npm install --save --save-exact @react-remote-state/types@$typesVersion -w packages/server
 npm version --no-git-tag-version $versionCommand -w packages/server
 $serverPackage = Get-Content -Raw .\packages\server\package.json | ConvertFrom-Json
 $serverVersion = $serverPackage.version
@@ -25,8 +25,8 @@ if ($serverVersion -ne $typesVersion) {
 }
 
 # client
-npm install -S @react-remote-state/types@$typesVersion -w packages/client
-npm install -D @react-remote-state/server@$serverVersion -w packages/client
+npm install --save --save-exact @react-remote-state/types@$typesVersion -w packages/client
+npm install --save-dev --save-exact @react-remote-state/server@$serverVersion -w packages/client
 npm version --no-git-tag-version $versionCommand -w packages/client
 $clientPackage = Get-Content -Raw .\packages\client\package.json | ConvertFrom-Json
 $clientVersion = $clientPackage.version
