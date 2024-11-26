@@ -1,6 +1,6 @@
 {
   "name": "@react-remote-state/server",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Server for React Remote State applications",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -28,7 +28,7 @@
   "dependencies": {
     "@hapi/catbox": "^12.1.1",
     "@hapi/catbox-memory": "^6.0.2",
-    "@react-remote-state/types": "^1.1.2",
+    "@react-remote-state/types": "^1.1.8",
     "commander": "^12.1.0",
     "fp-ts": "^2.16.9",
     "io-ts": "^2.2.21",
