@@ -22,60 +22,30 @@ import { Server as IOServer } from "socket.io";
 import ShortUniqueId from "short-unique-id";
 import * as t from "io-ts";
 import { Logger } from "pino";
+import { Database } from "./Database";
 
 const uid = new ShortUniqueId({ length: 10 });
 
 export default class Socket {
   client: IOSocket;
-  cache: Catbox.Client<any>;
   io: IOServer;
   gameId: string | null;
   playerId: string | null;
   logger: Logger<never, boolean>;
+  database: Database;
 
   constructor(
     io: IOServer,
     client: IOSocket,
-    cache: Catbox.Client<any>,
+    database: Database,
     rootLogger: Logger<never, boolean>
   ) {
     this.io = io;
     this.client = client;
-    this.cache = cache;
+    this.database = database;
     this.gameId = null;
     this.playerId = null;
     this.logger = rootLogger.child({ clientId: client.id });
-  }
-
-  private async getGame(
-    gameId: string
-  ): Promise<[serverGame: ServerGame<unknown, unknown>, hostSocketId: string]> {
-    let rawGame = await this.cache.get({
-      id: gameId,
-      segment: "game",
-    });
-
-    if (rawGame == null) {
-      throw new Error(`Unknown game id: "${gameId}"`);
-    }
-
-    let serverGame: ServerGame<unknown, unknown> = JSON.parse(rawGame.item);
-    let hostPlayer = serverGame.game.players.find((player) => player.host);
-
-    if (hostPlayer == undefined) {
-      throw new Error("Game has no host");
-    }
-
-    let hostSocketId =
-      hostPlayer.id in serverGame.playerSocketIds
-        ? serverGame.playerSocketIds[hostPlayer.id]
-        : null;
-
-    if (hostSocketId == null) {
-      throw new Error("Host socket id is not stored");
-    }
-
-    return [serverGame, hostSocketId];
   }
 
   private async onCreate(): Promise<void> {
@@ -112,11 +82,7 @@ export default class Socket {
       game: serverGame.game,
     };
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
+    await this.database.saveGame(serverGame);
 
     this.client.join(`game-${serverGame.game.id}`);
     this.client.emit("update", serverUpdate);
@@ -145,7 +111,9 @@ export default class Socket {
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(joinEvent.gameId);
+      [serverGame, hostSocketId] = await this.database.getGame(
+        joinEvent.gameId
+      );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -153,12 +121,7 @@ export default class Socket {
 
     serverGame.playersQueue[this.playerId] = this.client.id;
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
-
+    await this.database.saveGame(serverGame);
     this.io.to(hostSocketId).emit("join", { playerId: this.playerId });
     this.client.emit("assign", {
       playerId: this.playerId,
@@ -189,7 +152,9 @@ export default class Socket {
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(rejoinEvent.gameId);
+      [serverGame, hostSocketId] = await this.database.getGame(
+        rejoinEvent.gameId
+      );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -224,11 +189,7 @@ export default class Socket {
       p.id == player.id ? { ...p, connected: true } : p
     );
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
+    await this.database.saveGame(serverGame);
 
     let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
       playerId: this.playerId,
@@ -266,7 +227,9 @@ export default class Socket {
     );
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(acceptEvent.gameId);
+      [serverGame, hostSocketId] = await this.database.getGame(
+        acceptEvent.gameId
+      );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -297,12 +260,7 @@ export default class Socket {
     serverGame.playerSocketIds[acceptEvent.playerId] = joiningPlayerSocketId;
     delete serverGame.playersQueue[acceptEvent.playerId];
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
-
+    await this.database.saveGame(serverGame);
     this.io.to(joiningPlayerSocketId).socketsJoin(`game-${serverGame.game.id}`);
 
     let serverUpdate: ServerUpdateEvent<unknown, unknown> = {
@@ -330,7 +288,9 @@ export default class Socket {
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(declineEvent.gameId);
+      [serverGame, hostSocketId] = await this.database.getGame(
+        declineEvent.gameId
+      );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -348,11 +308,7 @@ export default class Socket {
 
     delete serverGame.playersQueue[declineEvent.playerId];
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
+    await this.database.saveGame(serverGame);
 
     this.io
       .to(joiningPlayerSocketId)
@@ -376,7 +332,9 @@ export default class Socket {
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(notifyEvent.gameId);
+      [serverGame, hostSocketId] = await this.database.getGame(
+        notifyEvent.gameId
+      );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -416,7 +374,9 @@ export default class Socket {
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(updateEvent.game.id);
+      [serverGame, hostSocketId] = await this.database.getGame(
+        updateEvent.game.id
+      );
     } catch (error) {
       this.client.emit("error", (error as Error).message);
       return;
@@ -429,11 +389,7 @@ export default class Socket {
 
     serverGame.game = updateEvent.game;
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
+    await this.database.saveGame(serverGame);
 
     this.io.to(`game-${serverGame.game.id}`).emit("update", updateEvent);
     this.logger.debug("update sent to all players");
@@ -447,7 +403,7 @@ export default class Socket {
     let serverGame, hostSocketId;
 
     try {
-      [serverGame, hostSocketId] = await this.getGame(this.gameId);
+      [serverGame, hostSocketId] = await this.database.getGame(this.gameId);
     } catch (error) {
       return;
     }
@@ -456,11 +412,7 @@ export default class Socket {
       player.id == this.playerId ? { ...player, connected: false } : player
     );
 
-    await this.cache.set(
-      { id: serverGame.game.id, segment: "game" },
-      JSON.stringify(serverGame),
-      3600000
-    );
+    await this.database.saveGame(serverGame);
 
     let updateEvent: UpdateEvent<unknown, unknown> = {
       game: serverGame.game,

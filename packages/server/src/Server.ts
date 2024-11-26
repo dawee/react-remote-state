@@ -8,6 +8,7 @@ import {
 } from "socket.io";
 import pino, { LevelWithSilentOrString, Logger } from "pino";
 import Socket from "./Socket";
+import { Database } from "./Database";
 
 interface ServerOptions {
   port?: number;
@@ -21,6 +22,7 @@ export default class Server {
   httpServer: HTTPServer;
   cache: Catbox.Client<any>;
   logger: Logger<never, boolean>;
+  database: Database;
 
   constructor(options?: ServerOptions) {
     this.logger = pino({
@@ -30,6 +32,7 @@ export default class Server {
     this.options = options;
     this.httpServer = createServer();
     this.io = new IOServer(this.httpServer, options?.io);
+    this.database = new Database();
   }
 
   public get port(): number {
@@ -37,10 +40,10 @@ export default class Server {
   }
 
   public async start(callback?: () => any) {
-    await this.cache.start();
+    await this.database.connect();
 
     this.io.on("connection", (client) => {
-      let socket = new Socket(this.io, client, this.cache, this.logger);
+      let socket = new Socket(this.io, client, this.database, this.logger);
 
       this.logger.debug({ clientId: client.id }, "New client connected");
 

@@ -10,7 +10,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "test": "vitest"
+    "test": "vitest",
+    "start": "node bin/test-server.js"
   },
   "author": "",
   "license": "ISC",
@@ -30,8 +31,10 @@
     "@hapi/catbox-memory": "^6.0.2",
     "@react-remote-state/types": "^1.1.8",
     "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
     "fp-ts": "^2.16.9",
     "io-ts": "^2.2.21",
+    "redis": "^4.7.0",
     "short-unique-id": "^5.2.0",
     "socket.io": "^4.8.0"
   }

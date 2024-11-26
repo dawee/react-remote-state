@@ -5,9 +5,5 @@
     "packages/server",
     "packages/client"
   ],
-  "dependencies": {
-    "@react-remote-state/types": "^1.0.0",
-    "io-ts": "^2.2.21"
-  },
   "version": "1.1.8"
 }
