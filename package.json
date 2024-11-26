@@ -3,8 +3,7 @@
   "workspaces": [
     "packages/types",
     "packages/server",
-    "packages/client",
-    "packages/rrs-server"
+    "packages/client"
   ],
   "dependencies": {
     "@react-remote-state/types": "^1.0.0",
