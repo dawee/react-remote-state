@@ -7,7 +7,7 @@ import { useRemoteReducer } from "../src";
 import { Socket as Client } from "socket.io-client";
 import socket from "../src/socket";
 import { Game } from "@react-remote-state/types";
-import { noop } from "lodash";
+import { noop, constant } from "lodash";
 
 type MockStorage = {
   setItem: Mock<(key: string, value: string) => void>;
@@ -68,13 +68,23 @@ function TestComponent<Data>(props: {
   onUpdate?: (game: Game<Data, Data>, playerId: string) => any;
   gameId?: string;
   initialAction?: Data;
+  acceptPlayer?: (game: Game<Data, Data>) => boolean;
+  onDeclined?: (declined: boolean) => any;
 }) {
-  let { storage, onUpdate = noop, initialAction, gameId } = props;
+  let {
+    storage,
+    onUpdate = noop,
+    onDeclined = noop,
+    initialAction,
+    gameId,
+    acceptPlayer = constant(true),
+  } = props;
   let [initialActionSent, setInitialActionSent] = useState(false);
-  let [game, playerId, dispatch] = useRemoteReducer<Data, Data, Data>(
+  let [game, playerId, dispatch, declined] = useRemoteReducer<Data, Data, Data>(
     `http://localhost:${server.port}`,
     (game, action, playerId) => ({ ...game, custom: action }),
     gameId,
+    acceptPlayer,
     storage
   );
 
@@ -89,6 +99,10 @@ function TestComponent<Data>(props: {
     }
   });
 
+  useEffect(() => {
+    onDeclined(declined);
+  }, [declined]);
+
   return <></>;
 }
 
@@ -96,8 +110,16 @@ function LinkerComponent<Data>(props: {
   onHostUpdate?: (game: Game<Data, Data>, playerId: string) => any;
   onGuestUpdate?: (game: Game<Data, Data>, playerId: string) => any;
   initialAction?: Data;
+  acceptPlayer?: (game: Game<Data, Data>) => boolean;
+  onDeclined?: (declined: boolean) => any;
 }) {
-  let { onHostUpdate = noop, onGuestUpdate = noop, initialAction } = props;
+  let {
+    onHostUpdate = noop,
+    onGuestUpdate = noop,
+    onDeclined = noop,
+    initialAction,
+    acceptPlayer = constant(true),
+  } = props;
   let [game, setGame] = useState<Game<Data, Data> | undefined>();
 
   function handleHostConnected(hostGame: Game<Data, Data>, playerId: string) {
@@ -111,6 +133,8 @@ function LinkerComponent<Data>(props: {
         key="host"
         onUpdate={handleHostConnected}
         storage={hostStorage}
+        acceptPlayer={acceptPlayer}
+        onDeclined={onDeclined}
       />
       {!!game && (
         <TestComponent
@@ -119,6 +143,8 @@ function LinkerComponent<Data>(props: {
           gameId={game.id}
           initialAction={initialAction}
           storage={guestStorage}
+          acceptPlayer={acceptPlayer}
+          onDeclined={onDeclined}
         />
       )}
     </>
@@ -168,6 +194,28 @@ test("join game when gameId is provided", async () => {
   expect(onHostUpdate.mock.lastCall?.[1]).not.toBe(
     onGuestUpdate.mock.lastCall?.[1]
   );
+});
+
+test("returns declined if host declined new player", async () => {
+  let onHostUpdate = vi.fn(
+    (game: Game<number, number>, playerId: string) => null
+  );
+  let onGuestUpdate = vi.fn(
+    (game: Game<number, number>, playerId: string) => null
+  );
+
+  let onDeclined = vi.fn();
+
+  render(
+    <LinkerComponent
+      onHostUpdate={onHostUpdate}
+      onGuestUpdate={onGuestUpdate}
+      onDeclined={onDeclined}
+      acceptPlayer={constant(false)}
+    />
+  );
+
+  await waitFor(() => expect(onDeclined.mock.lastCall?.[0]).toBe(true));
 });
 
 test("host runs reducer from notified action", async () => {

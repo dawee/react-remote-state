@@ -2,13 +2,15 @@ import { Game, RejoinEvent } from "@react-remote-state/types";
 import { useEffect, useReducer, useState } from "react";
 import { Socket as Client } from "socket.io-client";
 import socket from "./socket";
-import { flow } from "lodash";
+import { constant, flow } from "lodash";
+import { boolean } from "io-ts";
 
 type Meta = {
   client?: Client;
   isHostReady: boolean;
   localPlayerId?: string;
   isGuestReady: boolean;
+  declined: boolean;
 };
 
 export function getPlayer<GameCustom, PlayerCustom>(
@@ -45,6 +47,7 @@ type Reducer<GameCustom, PlayerCustom, Action> = (
 enum InternalActionType {
   Reduce,
   Update,
+  Accept,
 }
 
 type InternalReduceAction<Action> = {
@@ -59,12 +62,20 @@ type InternalUpdateAction<GameCustom, PlayerCustom> = {
   game: Game<GameCustom, PlayerCustom>;
 };
 
+type InternalAcceptAction = {
+  type: InternalActionType.Accept;
+  playerId: string;
+  client: Client;
+};
+
 type InternalAction<GameCustom, PlayerCustom, Action> =
   | InternalReduceAction<Action>
-  | InternalUpdateAction<GameCustom, PlayerCustom>;
+  | InternalUpdateAction<GameCustom, PlayerCustom>
+  | InternalAcceptAction;
 
 function wrapReducer<GameCustom, PlayerCustom, Action>(
-  reducer: Reducer<GameCustom, PlayerCustom, Action>
+  reducer: Reducer<GameCustom, PlayerCustom, Action>,
+  acceptPlayer: (game: Game<GameCustom, PlayerCustom>) => boolean
 ) {
   return (
     game: Game<GameCustom, PlayerCustom> | undefined,
@@ -81,6 +92,18 @@ function wrapReducer<GameCustom, PlayerCustom, Action>(
         }
 
         return game;
+      case InternalActionType.Accept:
+        if (!!game) {
+          internalAction.client?.emit(
+            acceptPlayer(game) ? "accept" : "decline",
+            {
+              gameId: game.id,
+              playerId: internalAction.playerId,
+            }
+          );
+        }
+
+        return game;
     }
   };
 }
@@ -89,18 +112,26 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
   uri: string,
   reducer: Reducer<GameCustom, PlayerCustom, Action>,
   gameId?: string | null,
+  acceptPlayer: (game: Game<GameCustom, PlayerCustom>) => boolean = constant(
+    true
+  ),
   storage: Storage = sessionStorage
 ): [
-  Game<GameCustom, PlayerCustom> | undefined,
-  string | undefined,
-  (action: Action) => void
+  game: Game<GameCustom, PlayerCustom> | undefined,
+  localPlayerId: string | undefined,
+  dispatch: (action: Action) => void,
+  declined: boolean
 ] {
   let [meta, setMeta] = useState<Meta>({
     isHostReady: false,
     isGuestReady: false,
+    declined: false,
   });
 
-  let [game, internalDispatch] = useReducer(wrapReducer(reducer), undefined);
+  let [game, internalDispatch] = useReducer(
+    wrapReducer(reducer, acceptPlayer),
+    undefined
+  );
 
   let dispatch = (action: Action) => {
     if (!!meta.client && !!game) {
@@ -162,15 +193,20 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
           })
         );
 
+        meta.client.on("decline", () => setMeta({ ...meta, declined: true }));
+
         setMeta({ ...meta, isGuestReady: true });
       }
 
       if (isHost(meta.localPlayerId, game) && !meta.isHostReady) {
         meta.client.on("join", (join) => {
-          meta.client?.emit("accept", {
-            gameId: game?.id,
-            playerId: join.playerId,
-          });
+          if (!!meta.client) {
+            internalDispatch({
+              type: InternalActionType.Accept,
+              playerId: join.playerId,
+              client: meta.client,
+            });
+          }
         });
 
         meta.client.on("notify", (notify) => {
@@ -189,5 +225,5 @@ export function useRemoteReducer<GameCustom, PlayerCustom, Action>(
     }
   });
 
-  return [game, meta.localPlayerId, dispatch];
+  return [game, meta.localPlayerId, dispatch, meta.declined];
 }
