@@ -12,8 +12,6 @@ npm run build --workspaces
 npm version --no-git-tag-version $versionCommand -w packages/types
 $typesPackage = Get-Content -Raw .\packages\types\package.json | ConvertFrom-Json
 $typesVersion = $typesPackage.version
-npm run build -w packages/types
-npm publish -w packages/types
 
 # server
 npm install --save --save-exact @react-remote-state/types@$typesVersion -w .\packages\server

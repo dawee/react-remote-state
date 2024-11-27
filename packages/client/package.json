@@ -1,6 +1,6 @@
 {
   "name": "@react-remote-state/client",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Client for React Remote State applications",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
