@@ -5,5 +5,11 @@
     "packages/server",
     "packages/client"
   ],
-  "version": "2.0.0"
+  "version": "2.0.0",
+  "scripts": {
+    "add-dependencies": "add-dependencies"
+  },
+  "devDependencies": {
+    "add-dependencies": "^1.1.0"
+  }
 }
