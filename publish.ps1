@@ -16,7 +16,7 @@ npm run build -w packages/types
 npm publish -w packages/types
 
 # server
-npm run add-dependencies .\packages\server\package.json @react-remote-state/types@$typesVersion
+npm install --save --save-exact @react-remote-state/types@$typesVersion -w .\packages\server
 npm version --no-git-tag-version $versionCommand -w packages/server
 $serverPackage = Get-Content -Raw .\packages\server\package.json | ConvertFrom-Json
 $serverVersion = $serverPackage.version
@@ -31,8 +31,8 @@ npm publish -w packages/server
 
 
 # client
-npm run add-dependencies .\packages\client\package.json @react-remote-state/types@$typesVersion
-npm run add-dependencies .\packages\client\package.json @react-remote-state/server@$serverVersion --dev
+npm install --save --save-exact @react-remote-state/types@$typesVersion -w .\packages\client
+npm install --save-dev --save-exact @react-remote-state/server@$serverVersion -w .\packages\client
 npm version --no-git-tag-version $versionCommand -w packages/client
 $clientPackage = Get-Content -Raw .\packages\client\package.json | ConvertFrom-Json
 $clientVersion = $clientPackage.version
