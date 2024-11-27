@@ -1,6 +1,6 @@
 {
   "name": "@react-remote-state/client",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "Client for React Remote State applications",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -15,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@react-remote-state/server": "2.0.5",
+    "@react-remote-state/server": "2.0.7",
     "@sheerun/mutationobserver-shim": "^0.3.3",
     "@testing-library/react": "^16.0.1",
     "@types/lodash": "^4.17.12",
@@ -31,7 +31,7 @@
     "react": "^18.3.1"
   },
   "dependencies": {
-    "@react-remote-state/types": "2.0.5",
+    "@react-remote-state/types": "2.0.7",
     "socket.io-client": "^4.8.1"
   }
 }
